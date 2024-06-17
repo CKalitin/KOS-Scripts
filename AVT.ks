@@ -3,12 +3,27 @@
 
 SET iters to 0.
 
-until iters > 10 {
-    PRINT GetVelocityInCompassDirections().
-    Print DirToPos(V(0,0,0), GetVelocityInCompassDirections()).
+until iters > 100 {
+    clearScreen.
+
+    PRINT GetHorizationVelocity().
+    Print DirToPos(V(0,0,0), GetHorizationVelocity()).
+
+    // Convert Kn to tons
+    SET _thrust to SHIP:THRUST / 9.964016384.
+    SET _mass to SHIP:MASS.
+    SET _twr to _thrust / _mass -0.002.
+
+    PRINT "thrust tons: " + _thrust.
+    Print "mass: " + _mass.
+    PRINT "twr: " + _twr.
+
+    // For some reason, -0.002 is needed to make the throttle work correctly
+    // When out of fuel there a divide by 0 error
+    LOCK THROTTLE to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02.
 
     SET iters to iters + 1.
-    wait 1.
+    wait 0.1.
 }
 
 // Return direction to position in degrees starting from 0 at north
@@ -30,9 +45,13 @@ function DirToPos {
 }
 
 // Return east/west and north/south components of velocity
-function GetVelocityInCompassDirections {
+function GetHorizationVelocity {
     // https://www.reddit.com/r/Kos/comments/bwy79n/clarifications_on_shipvelocitysurface/
     SET vEast to vDot(ship:velocity:surface, ship:north:starvector).
     SET vNorth to vDot(ship:velocity:surface, ship:north:forevector).
     return v(vEast, vNorth, 0).
+}
+
+function GetVerticalVelocity {
+    return vDot(ship:velocity, ship:up:vector).
 }

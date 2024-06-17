@@ -30,9 +30,13 @@ function DirToPos {
 }
 
 // Return east/west and north/south components of velocity
-function GetVelocityInCompassDirections {
+function GetHorizationVelocity {
     // https://www.reddit.com/r/Kos/comments/bwy79n/clarifications_on_shipvelocitysurface/
     SET vEast to vDot(ship:velocity:surface, ship:north:starvector).
     SET vNorth to vDot(ship:velocity:surface, ship:north:forevector).
     return v(vEast, vNorth, 0).
+}
+
+function GetVerticalVelocity {
+    return vDot(ship:velocity, ship:up:vector).
 }
