@@ -1,14 +1,14 @@
-// Ascent Variables Test
-// Testing the interactions between different target variables (Variables at stage sep: velocity, ap, alt, lofted trajectory constant (quadratic equation), etc.)
+// Pad geoposition: LATLNG(-0.09729775, -74.55767274)
 
-SET iters to 0.
+// Get distance between two positions without considering the altitude
+// Eg. LatLngDist(V(SHIP:GEOPOSITION:LAT, SHIP:GEOPOSITION:LNG, 0), V(-0.09729775,-74.55767274,0))
+function LatLngDist {
+    // Only x and y are used for lat/long. z is to be ignored
+    Parameter pos1.
+    Parameter pos2.
 
-until iters > 10 {
-    PRINT GetVelocityInCompassDirections().
-    Print DirToPos(V(0,0,0), GetVelocityInCompassDirections()).
-
-    SET iters to iters + 1.
-    wait 1.
+    // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
+    return (pos1 - pos2):MAG * 10471.975. 
 }
 
 // Return direction to position in degrees starting from 0 at north
