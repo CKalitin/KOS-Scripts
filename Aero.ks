@@ -9,31 +9,29 @@
 // Display pertinent variables
 // When low enough, 100% throttle for 10 seconds, then end
 
+// TODO: Target point above the landing location (so landing is more vertical)
+
 SET targetSite to LATLNG(-0.09729775, -74.55767274).
 SET previousImpactToTargetDistance to 1000.
-SET changeInPitchPerSecond to 1.5. // How much to change pitch per second to minimize error in closing distance
-SET pitch to 0.
-SET tickLength to 0.025.
+SET pitchLimit to 50.  // Pitch limit has to be high to counter act the undercorrect of kOS steering lock
+SET tickLength to 0.1.
 SET iters to 0.
 
 until iters > 1500 {
     // THIS IS TEMPORARY, DO IT BETTER LATER
     if NOT ADDONS:TR:HASIMPACT { BREAK. }
+    if SHIP:ALTITUDE < 750 { Lock STEERING to retrograde. }
 
     // Variables
-    SET impactToTargetDistance to LatLngDist(V(ADDONS:TR:IMPACTPOS:LAT, ADDONS:TR:IMPACTPOS:LNG, 0), V(targetSite:LAT, targetSite:LNG, 0)).
+    SET impactToTargetDistance to LatLngDist(V(ADDONS:TR:IMPACTPOS:LAT, ADDONS:TR:IMPACTPOS:LNG, 0), V(targetSite:LAT, targetSite:LNG, 0)). // Impact point to Target point distance
     SET impactToTargetDir to DirToPoint(V(ADDONS:TR:IMPACTPOS:LAT, ADDONS:TR:IMPACTPOS:LNG, 0), V(targetSite:LAT, targetSite:LNG, 0))-180. // -180 because we're going retrograde
     SET aproxTimeRemaining to (SHIP:altitude - 1000) / (SHIP:velocity:surface:mag*3).
 
     SET changeInDistanceToTargetPerSecond to (previousImpactToTargetDistance - impactToTargetDistance) / tickLength.
     SET previousImpactToTargetDistance to impactToTargetDistance.
-    if changeInDistanceToTargetPerSecond = 0 { SET changeInDistanceToTargetPerSecond to 1000. }
-
     SET targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
-    SET errorInClosingDistance to targetChangeInDistanceToTargetPerSecond - changeInDistanceToTargetPerSecond.
-    SET pitchChange to errorInClosingDistance * changeInPitchPerSecond * tickLength.
 
-    SET pitch to Clamp(targetChangeInDistanceToTargetPerSecond * 0.5, 0, 30).
+    SET pitch to Clamp(targetChangeInDistanceToTargetPerSecond, 0, pitchLimit).
     SET targetHeading to Heading(impactToTargetDir, 90-pitch).
 
     // Control
@@ -46,9 +44,6 @@ until iters > 1500 {
     PRINT "Impact to target distance: " + impactToTargetDistance.
     PRINT "Change in distance to target per second: " + changeInDistanceToTargetPerSecond.
     PRINT "Target Change in distance to target per second: " + targetChangeInDistanceToTargetPerSecond.
-    PRINT " ".
-    PRINT "Error in closing distance: " + errorInClosingDistance.
-    PRINT "Pitch Change: " + pitchChange.
     PRINT " ".
     PRINT "Pitch: " + pitch.
     PRINT " ".
