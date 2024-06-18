@@ -1,15 +1,15 @@
 // Pad geoposition: LATLNG(-0.09729775, -74.55767274)
 
-// TEMPORARY!!!!!
+// Examples
 function ThrustMassTWR {
     // Prograde Vector 2D
-    Print DirToPos(V(0,0,0), GetHorizationVelocity()).
+    Print DirToPoint(V(0,0,0), GetHorizationVelocity()).
     
     // Altitude of point of the orbit
     PRINT (ORBITAT(SHIP, TIME:SECONDS):body:altitudeof(SHIP:position)).
     
     // Direction to landing geoposition
-    PRINT DirToPos(V(SHIP:GEOPOSITION:LAT, SHIP:GEOPOSITION:LNG, 0), V(ADDONS:TR:IMPACTPOS:LAT, ADDONS:TR:IMPACTPOS:LNG, 0))-180.
+    PRINT DirToPoint(V(SHIP:GEOPOSITION:LAT, SHIP:GEOPOSITION:LNG, 0), V(ADDONS:TR:IMPACTPOS:LAT, ADDONS:TR:IMPACTPOS:LNG, 0))-180.
 
     // Convert Kn to tons
     SET _thrust to SHIP:THRUST / 9.964016384.

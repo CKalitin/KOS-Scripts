@@ -10,10 +10,11 @@
 // When low enough, 100% throttle for 10 seconds, then end
 
 // TODO: Target point above the landing location (so landing is more vertical)
+// TODO: Redo variables in loop with Lock instead of set, this is how kOS is meant to be used
 
-SET targetSite to LATLNG(-0.09729775, -74.55767274).
+SET targetSite to LATLNG(-0.09729775, -74.55767274). // Launch pad
 SET previousImpactToTargetDistance to 1000.
-SET pitchLimit to 50.  // Pitch limit has to be high to counter act the undercorrect of kOS steering lock
+SET pitchLimit to 50.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
 SET tickLength to 0.1.
 SET iters to 0.
 
@@ -22,7 +23,6 @@ until iters > 1500 {
     if NOT ADDONS:TR:HASIMPACT { BREAK. }
     if SHIP:ALTITUDE < 750 { Lock STEERING to retrograde. }
 
-    // Variables
     SET impactToTargetDistance to LatLngDist(V(ADDONS:TR:IMPACTPOS:LAT, ADDONS:TR:IMPACTPOS:LNG, 0), V(targetSite:LAT, targetSite:LNG, 0)). // Impact point to Target point distance
     SET impactToTargetDir to DirToPoint(V(ADDONS:TR:IMPACTPOS:LAT, ADDONS:TR:IMPACTPOS:LNG, 0), V(targetSite:LAT, targetSite:LNG, 0))-180. // -180 because we're going retrograde
     SET aproxTimeRemaining to (SHIP:altitude - 1000) / (SHIP:velocity:surface:mag*3).
@@ -34,7 +34,6 @@ until iters > 1500 {
     SET pitch to Clamp(targetChangeInDistanceToTargetPerSecond, 0, pitchLimit).
     SET targetHeading to Heading(impactToTargetDir, 90-pitch).
 
-    // Control
     LOCK STEERING to targetHeading.
 
     CLEARSCREEN.
