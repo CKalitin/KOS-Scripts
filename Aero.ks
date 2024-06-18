@@ -25,7 +25,7 @@ until iters > 1500 {
     if NOT ADDONS:TR:HASIMPACT { BREAK. }
     //if SHIP:ALTITUDE < 750 { Lock STEERING to retrograde. }
 
-    SET impactGeoPos to GetLatLngAtAltitude(0, 200, 10).
+    SET impactGeoPos to GetLatLngAtAltitude(0, SHIP:OBT:ETA:PERIAPSIS, 10).
     SET impactPosVector to V(impactGeoPos:LAT, impactGeoPos:LNG, 0).
 
     SET impactToTargetDistance to LatLngDist(impactPosVector, V(targetSite:LAT, targetSite:LNG, 0)). // Impact point to Target point distance
@@ -40,19 +40,7 @@ until iters > 1500 {
     SET targetHeading to Heading(impactToTargetDir, 90-pitch).
 
     LOCK STEERING to targetHeading.
-
-    SET anArrow TO VECDRAW(
-      V(0,0,0),
-      impactGeoPos:position,
-      RGB(1,0,0),
-      "See the arrow?",
-      1.0,
-      TRUE,
-      0.2,
-      TRUE,
-      TRUE
-    ).
-
+    
     PRINT "Impact to target direction: " + impactToTargetDir.
     PRINT "Aprox Time Remaining: " + aproxTimeRemaining.
     PRINT " ".
@@ -72,7 +60,8 @@ until iters > 1500 {
 // HELPER FUNCTIONS
 // HELPER FUNCTIONS
 
-// Return the lat/long of the position at a given altitude a future range
+// Return the lat/long of the position in the future on the current orbit at a given altitude
+// Ie. find the geolocation when we're at x meters above the surface in range y seconds
 function GetLatLngAtAltitude {
     local parameter targetAltitude. // Meters
     local parameter timeRange. // Seconds

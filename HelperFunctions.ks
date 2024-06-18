@@ -23,6 +23,20 @@ function ThrustMassTWR {
     // For some reason, -0.002 is needed to make the throttle work correctly
     // When out of fuel there a divide by 0 error
     LOCK THROTTLE to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02.
+
+    // Use :position to get vector from geoposition
+    
+    SET anArrow TO VECDRAW(
+      V(0,0,0),
+      geoposition:position,
+      RGB(1,0,0),
+      "See the arrow?",
+      1.0,
+      TRUE,
+      0.2,
+      TRUE,
+      TRUE
+    ).
 }
 
 // Get distance between two positions without considering the altitude
@@ -76,57 +90,38 @@ function Clamp {
     return value.
 }
 
-// FAILURE:
-function FindImpactLatLng {
-    Parameter searchTime. // How many seconds to search for the impact point, 10 mins recommened
-    Parameter altitudePrecision. // How close to 0 meters the impact point must be, 5m recommended
+// Return the lat/long of the position in the future on the current orbit at a given altitude
+// Ie. find the geolocation when we're at x meters above the surface in range y seconds
+// SET impactGeoPos to GetLatLngAtAltitude(0, SHIP:OBT:ETA:PERIAPSIS, 10).
+function GetLatLngAtAltitude {
+    local parameter targetAltitude. // Meters
+    local parameter timeRange. // Seconds
+    local parameter altitudePrecision. // Allowable meters from given altitude to be considered correct, can't asymptote and crash the game
 
-    Set futureTime to TIME:SECONDS + searchTime.
-    Set findImpactIters to 0. // So not confused with global variables
-    Set lowCutoff to 100000.
-    Set highCutoff to 0.
-    Set impactAltitude to lowCutoff.
+    // Replace 'SET' with 'Local'
+    // Lower bound is present, upper bound is future
+    local lowerBound to TIME:seconds.
+    local upperBound to TIME:seconds + timeRange.
+    local midTime to 0.
 
-    until (ABS(impactAltitude) < altitudePrecision OR findImpactIters > 50) {
-        Set impactAltitude to body:altitudeof(positionat(SHIP, futureTime)).
+    // Binary Search
+    for x in range(0, 25) {
+        SET midTime to (lowerBound + upperBound) / 2.
+        local midAltitude to body:altitudeof(positionat(SHIP, midTime)).
 
-        if impactAltitude < 0 { 
-            Set lowCutoff to futureTime.
+        if midAltitude < targetAltitude {
+            SET upperBound to midTime.
+        } else {
+            SET lowerBound to midTime.
         }
-        else { 
-            Set highCutoff to futureTime.
-        }
 
-        Set futureTime to (lowCutoff + highCutoff) / 2.
-        Set findImpactIters to findImpactIters + 1.
-
-        Print impactAltitude.
-        if ABS(impactAltitude) < altitudePrecision { break. }
+        // If error less than precision
+        if ABS(ABS(midAltitude) - targetAltitude) < altitudePrecision { BREAK. }
     }
-    
-    SET anArrow TO VECDRAW(
-      V(0,0,0),
-      positionat(SHIP, futureTime),
-      RGB(1,0,0),
-      "See the arrow?",
-      1.0,
-      TRUE,
-      0.2,
-      TRUE,
-      TRUE
-    ).
 
-    SET anArrow TO VECDRAW(
-      V(0,0,0),
-      geoposition:position,
-      RGB(1,0,0),
-      "See the arrow?",
-      1.0,
-      TRUE,
-      0.2,
-      TRUE,
-      TRUE
-    ).
+    local geopos to BODY:GEOPOSITIONOF(positionat(SHIP, midTime)).
+    // Longitude rotation of planet during coast to altitude ((360 degrees * seconds until impact) / seconds per rotation) * cos(cosine of latitude becuase of curvature)
+    local rotationAdjustment to (360*(midTime-TIME:seconds)/BODY:rotationperiod) * cos(geopos:lat).
 
-    return BODY:GEOPOSITIONOF(orbitAt(SHIP, futureTime):position).
+    return latlng(geopos:lat, geopos:lng - rotationAdjustment).
 }
