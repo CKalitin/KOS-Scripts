@@ -116,5 +116,17 @@ function FindImpactLatLng {
       TRUE
     ).
 
+    SET anArrow TO VECDRAW(
+      V(0,0,0),
+      geoposition:position,
+      RGB(1,0,0),
+      "See the arrow?",
+      1.0,
+      TRUE,
+      0.2,
+      TRUE,
+      TRUE
+    ).
+
     return BODY:GEOPOSITIONOF(orbitAt(SHIP, futureTime):position).
 }
