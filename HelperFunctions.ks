@@ -26,6 +26,7 @@ function ThrustMassTWR {
 
     // Use :position to get vector from geoposition
     
+    CLEARVECDRAWS().
     SET anArrow TO VECDRAW(
       V(0,0,0),
       geoposition:position,

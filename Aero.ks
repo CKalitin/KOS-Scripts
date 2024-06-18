@@ -15,15 +15,75 @@
 SET targetSite to LATLNG(-0.09729775, -74.55767274). // Launch pad // -0.09729775, -74.55767274
 SET previousImpactToTargetDistance to 1000.
 SET pitchLimit to 50.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
-SET tickLength to 0.25.
+SET tickLength to 0.1.
 SET iters to 0.
 
-until iters > 1500 {
+until iters > 99999 {
+    if NOT ADDONS:TR:HASIMPACT { break. }
     CLEARSCREEN.
+    DualStepControl().
+    WAIT tickLength.
+    SET iters to iters + 1.
+}
 
+// Aiming for a point in two steps (first to x meters above target, then to target)
+function DualStepControl{
+    if ship:altitude > 2000 {
+        SET impactGeoPos to GetLatLngAtAltitude(2000, SHIP:OBT:ETA:PERIAPSIS, 10).
+        SET impactPosVector to V(impactGeoPos:LAT, impactGeoPos:LNG, 0).
+
+        // Use normalized latlng direction for adjustment
+        SET targetPos to AddMetersToGeoPos(targetSite, V(40,150,0)).
+
+    } else{
+        SET impactGeoPos to GetLatLngAtAltitude(0, SHIP:OBT:ETA:PERIAPSIS, 10).
+        SET impactPosVector to V(impactGeoPos:LAT, impactGeoPos:LNG, 0).
+
+        SET targetPos to V(targetSite:lat, targetSite:lng, 0).
+    }
+
+    CLEARVECDRAWS().
+    SET anArrow TO VECDRAW(
+        V(0,0,0),
+        latlng(targetPos:x, targetPos:y):position,
+        RGB(1,0,0),
+        "X",
+        1.0,
+        TRUE,
+        0.2,
+        TRUE,
+        TRUE
+    ).
+
+    SET impactToTargetDistance to LatLngDist(impactPosVector, targetPos). // Impact point to Target point distance
+    SET impactToTargetDir to DirToPoint(impactPosVector, targetPos)-180. // -180 because we're going retrograde
+    SET aproxTimeRemaining to (SHIP:altitude - 1000) / (SHIP:velocity:surface:mag^1.5). // *4 to overcorrect, this works at terminal velocity
+
+    SET changeInDistanceToTargetPerSecond to (previousImpactToTargetDistance - impactToTargetDistance) / tickLength.
+    SET previousImpactToTargetDistance to impactToTargetDistance.
+    SET targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
+
+    SET pitch to Clamp(targetChangeInDistanceToTargetPerSecond, 0, pitchLimit).
+    SET targetHeading to Heading(impactToTargetDir, 90-pitch).
+
+    LOCK STEERING to targetHeading.
+
+    PRINT "Impact to target direction: " + impactToTargetDir.
+    PRINT "Aprox Time Remaining: " + aproxTimeRemaining.
+    PRINT " ".
+    PRINT "Impact to target distance: " + impactToTargetDistance.
+    PRINT "Change in distance to target per second: " + changeInDistanceToTargetPerSecond.
+    PRINT "Target Change in distance to target per second: " + targetChangeInDistanceToTargetPerSecond.
+    PRINT " ".
+    PRINT "Pitch: " + pitch.
+    PRINT " ".
+    PRINT "Iters: " + iters.
+}
+
+// Aiming for a point in a single step (directly to point)
+function SingleStepControl{
     // THIS IS TEMPORARY, DO IT BETTER LATER
-    if NOT ADDONS:TR:HASIMPACT { BREAK. }
-    //if SHIP:ALTITUDE < 750 { Lock STEERING to retrograde. }
+    if NOT ADDONS:TR:HASIMPACT { return. }
 
     SET impactGeoPos to GetLatLngAtAltitude(0, SHIP:OBT:ETA:PERIAPSIS, 10).
     SET impactPosVector to V(impactGeoPos:LAT, impactGeoPos:LNG, 0).
@@ -40,7 +100,7 @@ until iters > 1500 {
     SET targetHeading to Heading(impactToTargetDir, 90-pitch).
 
     LOCK STEERING to targetHeading.
-    
+
     PRINT "Impact to target direction: " + impactToTargetDir.
     PRINT "Aprox Time Remaining: " + aproxTimeRemaining.
     PRINT " ".
@@ -51,9 +111,6 @@ until iters > 1500 {
     PRINT "Pitch: " + pitch.
     PRINT " ".
     PRINT "Iters: " + iters.
-
-    WAIT tickLength.
-    SET iters to iters + 1.
 }
 
 // HELPER FUNCTIONS
@@ -127,7 +184,7 @@ function DirToPoint {
 // Return east/west and north/south components of velocity
 function GetHorizationVelocity {
     // https://www.reddit.com/r/Kos/comments/bwy79n/clarifications_on_shipvelocitysurface/
-    SET vEast to vDot(ship:velocity:surface, ship:north:starvector).
+    SET vEast to -vDot(ship:velocity:surface, ship:north:starvector).
     SET vNorth to vDot(ship:velocity:surface, ship:north:forevector).
     return v(vEast, vNorth, 0).
 }
@@ -144,4 +201,14 @@ function Clamp {
     if value < minValue { return minValue. }
     if value > maxValue { return maxValue. }
     return value.
+}
+
+// Add meters to geo position and return as vector with lat/lng values
+function AddMetersToGeoPos{
+    // Both vectors, z is to be ignored when dealing with latlngs
+    local Parameter geopos.
+    local Parameter meters.
+
+    // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
+    return V(geopos:lat + meters:x/10471.975, geopos:lng + meters:y/10471.975, 0). 
 }
