@@ -37,7 +37,7 @@ function LatLngDist {
 }
 
 // Return direction to position in degrees starting from 0 at north
-function DirToPos {
+function DirToPoint {
     // Only x and y are used for lat/long. z is to be ignored
     Parameter pos1.
     Parameter pos2.
@@ -46,7 +46,7 @@ function DirToPos {
 
     // atan2 resolves arctan ambiguity (ASTC quadrants)
     // Reversing x and y to rotate by 90 degrees so we start at 0 degrees at north, usualy ATAN(Y, X)
-    SET result to arcTan2(diff:X, diff:Y).
+    SET result to arcTan2(diff:Y, diff:X).
 
     // Keep degress between 0 and 360
     if result < 0 { SET result to result + 360. }
@@ -66,34 +66,14 @@ function GetVerticalVelocity {
     return vDot(ship:velocity, ship:up:vector).
 }
 
-function FindImpactLatLng {
-    Parameter searchTime. // How many seconds to search for the impact point, 10 mins recommened
-    Parameter altitudePrecision. // How close to 0 meters the impact point must be, 5m recommended
+function Clamp {
+    Parameter value.
+    Parameter min.
+    Parameter max.
 
-    Set futureTime to TIME:SECONDS + searchTime.
-    Set findImpactIters to 0. // So not confused with global variables
-    Set lowCutoff to 100000.
-    Set highCutoff to 0.
-    Set impactAltitude to lowCutoff.
-
-    until (ABS(impactAltitude) < altitudePrecision OR findImpactIters > 17) {
-        Set impactAltitude to body:altitudeof(positionat(SHIP, futureTime)).
-
-        if impactAltitude < 0 { 
-            Set lowCutoff to futureTime.
-        }
-        else { 
-            Set highCutoff to futureTime.
-        }
-
-        Set futureTime to (lowCutoff + highCutoff) / 2.
-        Set findImpactIters to findImpactIters + 1.
-
-        if lowCutoff > 0 { break. } // Binary search is broken, just return
-        if ABS(impactAltitude) < altitudePrecision { break. }
-    }
-
-    return SHIP:BODY:GEOPOSITIONOF(orbitAt(SHIP, futureTime):position).
+    if value < min { return min. }
+    if value > max { return max. }
+    return value.
 }
 
 // FAILURE:
