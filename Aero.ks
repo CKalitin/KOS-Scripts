@@ -18,12 +18,36 @@ SET pitchLimit to 50.  // Pitch limit has to be high to counter act the undercor
 SET tickLength to 0.1.
 SET iters to 0.
 
-until iters > 99999 {
+until iters > 400 {
     if NOT ADDONS:TR:HASIMPACT { break. }
     CLEARSCREEN.
-    DualStepControl().
+    //DualStepControl().
+    SuicideBurn().
     WAIT tickLength.
     SET iters to iters + 1.
+}
+
+function SuicideBurn {
+    // Binary search required here to find velocity? air resistance?
+
+    local g to body:mu / (altitude + body:radius)^2.
+
+    // Divide to convert from kN to N
+    local acceleration to (SHIP:MAXTHRUST / SHIP:MASS).
+    local netAcc to acceleration - g.
+
+    local estBurnAlt to (GetVerticalVelocity()^2) / (netAcc*2). // Kinematics equation to find displacement
+    local estBurnTime to (estBurnAlt/(0.5*netAcc))^0.5.
+    
+    // TODO: Add impact point surface altitude to landing estimated burn altitude
+    // Zero out horizontal velocity
+    // Throttle control relative to Alt vs. Est Burn Alt (error), some sort of exponential to asymptotically approach the correct value, closed loop.
+
+    PRINT "Net Acc: " + netAcc.
+    PRINT "Est Burn Time: " + estBurnTime.
+    PRINT "Est Burn Alt: " + estBurnAlt.
+    PRINT "Alt: " + SHIP:altitude.
+    PRINT "Alt vs. Est Burn Alt: " + (SHIP:ALTITUDE - estBurnAlt - 73).
 }
 
 // Aiming for a point in two steps (first to x meters above target, then to target)
@@ -190,7 +214,7 @@ function GetHorizationVelocity {
 }
 
 function GetVerticalVelocity {
-    return vDot(ship:velocity, ship:up:vector).
+    return vDot(ship:velocity:surface, ship:up:vector).
 }
 
 function Clamp {
