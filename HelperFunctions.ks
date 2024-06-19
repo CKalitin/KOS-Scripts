@@ -78,7 +78,7 @@ function GetHorizationVelocity {
 }
 
 function GetVerticalVelocity {
-    return vDot(ship:velocity, ship:up:vector).
+    return vDot(ship:velocity:surface, ship:up:vector).
 }
 
 function Clamp {
@@ -89,6 +89,16 @@ function Clamp {
     if value < min { return min. }
     if value > max { return max. }
     return value.
+}
+
+// Add meters to geo position and return as vector with lat/lng values
+function AddMetersToGeoPos{
+    // Both vectors, z is to be ignored when dealing with latlngs
+    local Parameter geopos.
+    local Parameter meters.
+
+    // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
+    return V(geopos:lat + meters:x/10471.975, geopos:lng + meters:y/10471.975, 0). 
 }
 
 // Return the lat/long of the position in the future on the current orbit at a given altitude
@@ -125,4 +135,21 @@ function GetLatLngAtAltitude {
     local rotationAdjustment to (360*(midTime-TIME:seconds)/BODY:rotationperiod) * cos(geopos:lat).
 
     return latlng(geopos:lat, geopos:lng - rotationAdjustment).
+}
+
+// Engines must be active to return accurate value
+// Eg. use (SHIP:ALTITUDE - GetSuicudeBurnAltitude()) to get the whether the engines should be firing or not, <0 = fire
+function GetSuicudeBurnAltitude {
+    local Parameter suicideBurnImpactPos.
+
+    local g to body:mu / (altitude + body:radius)^2.
+
+    // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration
+    local netAcc to (SHIP:MAXTHRUST / SHIP:MASS) - g.
+
+    // Kinematics equation to find displacement, +5 bc code isn't perfect
+    local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(suicideBurnImpactPos:TERRAINHEIGHT, 0, 100000) + 5. 
+    //local estBurnTime to (estBurnAlt/(0.5*netAcc))^0.5.
+
+    return estBurnAlt.
 }

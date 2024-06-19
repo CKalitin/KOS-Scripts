@@ -1,63 +1,67 @@
 // Areodynamic Control Test
 // Steering to a target location
 
-// Control Flow, Loop:
-// Get difference between current impact and target site
-// Get heading to target site in a form suitable for vehicle control
-// Get time until burn start (eg. time to 1000m)
-// Use remaining time and difference between current impact and target site to calculate / modulate steering
-// Display pertinent variables
-// When low enough, 100% throttle for 10 seconds, then end
-
-// TODO: Target point above the landing location (so landing is more vertical)
+// MORE IMPORTANT TODO: When impact pos reaches target pos there is over correction, lower the exponent here
 // TODO: Redo variables in loop with Lock instead of set, this is how kOS is meant to be used
 
-SET targetSite to LATLNG(-0.09729775, -74.55767274). // Launch pad // -0.09729775, -74.55767274
-SET previousImpactToTargetDistance to 1000.
+// Primary Launch Pad: -0.09729775, -74.55767274
+// Landing site north:  -0.185407556445315, -74.4729356049979
+SET targetSite to LATLNG(-0.185407556445315, -74.4729356049979).
 SET pitchLimit to 50.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
 SET tickLength to 0.1.
 SET iters to 0.
 
-until iters > 400 {
+SET previousImpactToTargetDistance to 1000.
+
+// Flight Variables:
+Set ImpactPos to LATLNG(0,0). 
+
+until iters > 500 {
     if NOT ADDONS:TR:HASIMPACT { break. }
     CLEARSCREEN.
-    //DualStepControl().
-    SuicideBurn().
+
+    // Flight Variables
+    SET ImpactPos to GetLatLngAtAltitude(0, SHIP:OBT:ETA:PERIAPSIS, 10).
+
+    DualStepControl().
+
+    //if SHIP:ALTITUDE > 4000 {
+    //    DualStepControl().
+    //} else {
+    //    UNLOCK STEERING.
+    //    GetSuicudeBurnAltitude().
+    //}
+
     WAIT tickLength.
     SET iters to iters + 1.
 }
 
-function SuicideBurn {
-    // Binary search required here to find velocity? air resistance?
-
+// Engines must be active to return accurate value
+// Eg. use (SHIP:ALTITUDE - GetSuicudeBurnAltitude()) to get the whether the engines should be firing or not, <0 = fire
+function GetSuicudeBurnAltitude {
     local g to body:mu / (altitude + body:radius)^2.
 
-    // Divide to convert from kN to N
-    local acceleration to (SHIP:MAXTHRUST / SHIP:MASS).
-    local netAcc to acceleration - g.
+    // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration
+    local netAcc to (SHIP:MAXTHRUST / SHIP:MASS) - g.
 
-    local estBurnAlt to (GetVerticalVelocity()^2) / (netAcc*2). // Kinematics equation to find displacement
-    local estBurnTime to (estBurnAlt/(0.5*netAcc))^0.5.
-    
-    // TODO: Add impact point surface altitude to landing estimated burn altitude
-    // Zero out horizontal velocity
-    // Throttle control relative to Alt vs. Est Burn Alt (error), some sort of exponential to asymptotically approach the correct value, closed loop.
+    // Kinematics equation to find displacement, +5 bc code isn't perfect
+    local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT, 0, 100000) + 5. 
+    //local estBurnTime to (estBurnAlt/(0.5*netAcc))^0.5.
 
-    PRINT "Net Acc: " + netAcc.
-    PRINT "Est Burn Time: " + estBurnTime.
-    PRINT "Est Burn Alt: " + estBurnAlt.
-    PRINT "Alt: " + SHIP:altitude.
-    PRINT "Alt vs. Est Burn Alt: " + (SHIP:ALTITUDE - estBurnAlt - 73).
+    return estBurnAlt.
 }
 
 // Aiming for a point in two steps (first to x meters above target, then to target)
 function DualStepControl{
+    local impactGeoPos to V(0,0,0).
+    local impactPosVector to V(0,0,0).
+
     if ship:altitude > 2000 {
         SET impactGeoPos to GetLatLngAtAltitude(2000, SHIP:OBT:ETA:PERIAPSIS, 10).
         SET impactPosVector to V(impactGeoPos:LAT, impactGeoPos:LNG, 0).
 
-        // Use normalized latlng direction for adjustment
-        SET targetPos to AddMetersToGeoPos(targetSite, V(40,150,0)).
+        // TODO: Use normalized latlng direction for adjustment
+        SET targetPos to AddMetersToGeoPos(targetSite, V(70,100,0)).
 
     } else{
         SET impactGeoPos to GetLatLngAtAltitude(0, SHIP:OBT:ETA:PERIAPSIS, 10).
@@ -66,22 +70,9 @@ function DualStepControl{
         SET targetPos to V(targetSite:lat, targetSite:lng, 0).
     }
 
-    CLEARVECDRAWS().
-    SET anArrow TO VECDRAW(
-        V(0,0,0),
-        latlng(targetPos:x, targetPos:y):position,
-        RGB(1,0,0),
-        "X",
-        1.0,
-        TRUE,
-        0.2,
-        TRUE,
-        TRUE
-    ).
-
     SET impactToTargetDistance to LatLngDist(impactPosVector, targetPos). // Impact point to Target point distance
     SET impactToTargetDir to DirToPoint(impactPosVector, targetPos)-180. // -180 because we're going retrograde
-    SET aproxTimeRemaining to (SHIP:altitude - 1000) / (SHIP:velocity:surface:mag^1.5). // *4 to overcorrect, this works at terminal velocity
+    SET aproxTimeRemaining to (SHIP:altitude) / (SHIP:velocity:surface:mag^1.5). // *4 to overcorrect, this works at terminal velocity
 
     SET changeInDistanceToTargetPerSecond to (previousImpactToTargetDistance - impactToTargetDistance) / tickLength.
     SET previousImpactToTargetDistance to impactToTargetDistance.
@@ -143,6 +134,7 @@ function SingleStepControl{
 
 // Return the lat/long of the position in the future on the current orbit at a given altitude
 // Ie. find the geolocation when we're at x meters above the surface in range y seconds
+// SET impactGeoPos to GetLatLngAtAltitude(0, SHIP:OBT:ETA:PERIAPSIS, 10).
 function GetLatLngAtAltitude {
     local parameter targetAltitude. // Meters
     local parameter timeRange. // Seconds
