@@ -11,6 +11,12 @@ function ThrustMassTWR {
     // Direction to landing geoposition
     PRINT DirToPoint(V(SHIP:GEOPOSITION:LAT, SHIP:GEOPOSITION:LNG, 0), V(ADDONS:TR:IMPACTPOS:LAT, ADDONS:TR:IMPACTPOS:LNG, 0))-180.
 
+    // Current Pitch
+    PRINT "Heading Pitch: " + vang(ship:facing:forevector, up:forevector) at (0, 3).
+
+    // Retrograde Pitch
+    PRINT "Retrograde Pitch: " + vang(srfretrograde:forevector, up:forevector) at (0, 0).
+
     // Convert Kn to tons
     SET _thrust to SHIP:THRUST / 9.964016384.
     SET _mass to SHIP:MASS.
@@ -31,13 +37,21 @@ function ThrustMassTWR {
       V(0,0,0),
       geoposition:position,
       RGB(1,0,0),
-      "See the arrow?",
+      "X",
       1.0,
       TRUE,
       0.2,
       TRUE,
       TRUE
     ).
+}
+
+// Get compass bearing of retrograde by getting geoposition of retrograde point and the direction from the ship to it
+function GetRetrogradeBearing {
+    local retrogradeGeoPos to AddMetersToGeoPos(Ship:geoposition, GetHorizationVelocity()*1000).
+    local result to DirToPoint(V(Ship:geoposition:lat, Ship:geoPosition:lng, 0), retrogradeGeoPos) * -1 + 270. // Vector math, adjust to be centered on north
+    if result > 360 { SET result to result - 360. }
+    return result.
 }
 
 // Get distance between two positions without considering the altitude
