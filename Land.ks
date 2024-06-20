@@ -166,58 +166,47 @@ function GlideToTarget {
 
     local targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
 
-    local relativePitch to Clamp(targetChangeInDistanceToTargetPerSecond, 0, pitchLimit).
-    SET relativePitch to Clamp(relativePitch - RetrogradePitch, -pitchLimit, pitchLimit).
-
-    //local relativeBearing to Clamp(impactToTargetDir - 180 - RetrogradeBearing, -bearingLimit, bearingLimit).
-
-    // Temp, make function or make good later:
-    local progradeBearing to retrogradeBearing - 180.
-    if progradeBearing < 0 { SET progradeBearing to progradeBearing + 360. }
-    if progradeBearing > 360 { SET progradeBearing to progradeBearing - 360. }
-
-    // First, rotate the compass direction to the target to align our own heading as north ie. -((RetrogradeBearing-180)-impactToTargetDir)
-    // Then, then cosine, multiply by hypotenuse and take the absolute value in case of negative cos value
-    // This approach (insetad of only using direction to target) makes us only consider the x component, y is pitch, so in practice this is like yaw
-    local relativeBearing to cos(-(progradeBearing-impactToTargetDir)) * targetChangeInDistanceToTargetPerSecond.
-    if -(progradeBearing-impactToTargetDir) < 0 { SET relativeBearing to relativeBearing * -1. }
-    SET relativeBearing to Clamp(relativeBearing, -pitchLimit, pitchLimit).
-
-    // -180 because aerodynamic control means we point in the opposite direction, + retrogradePitch so that we aren't center on up but on retrograde
-    local targetHeading to Heading(RetrogradeBearing + relativeBearing, 90 - relativePitch + retrogradePitch, 0).
-
-    LOCK STEERING to targetHeading.
+    local shipDirToTarget to RetrogradeBearing - 180 - impactToTargetDir. // This will need to be -180'd in the future to account for pointing retrograde
     
-    CLEARVECDRAWS().
-    SET anArrow TO VECDRAW(
-      V(0,0,0),
-      LATLNG(TargetPos:x, TargetPos:y):position,
-      RGB(1,0,0),
-      "X",
-      1.0,
-      TRUE,
-      0.2,
-      TRUE,
-      TRUE
-    ).
+    local xProportionalError to sin(shipDirToTarget).
+    local yProportionalError to cos(shipDirToTarget).
 
-    // Variables relevent to relative bearing
-    PRINT "Cosine: " + cos(-(progradeBearing-impactToTargetDir)) + " = cos(-(" + ROUND(progradeBearing, 3) + " - " + ROUND(impactToTargetDir, 3) + "))" at (0, 14).
-    PRINT "Retrograde Bearing: " + RetrogradeBearing at (0, 15).
-    PRINT "impactToTargetDir: " + (impactToTargetDir - 180) at (0, 16).
-    PRINT "True Bearing: " + SHIP:bearing at (0, 17).
+    // Used for both pitch and bearing (yaw)
+    local pitchMultiplier to targetChangeInDistanceToTargetPerSecond.
 
-    PRINT "Impact to target distance: " + impactToTargetDistance at (0, 2).
-    PRINT "Aprox Time Remaining: " + aproxTimeRemaining at (0, 3).
+    // First, if x error is greater, set y to a multiple of clamped x error 
+    local relativeBearing to CLAMP(xProportionalError * pitchMultiplier, -pitchLimit, pitchLimit).
+    local relativePitch to CLAMP(relativeBearing * yProportionalError, -pitchLimit, pitchLimit).
+    
+    // Or, if y error is greater, set x to a multiple of clamped y error 
+    if ABS(xProportionalError) < ABS(yProportionalError) {
+        SET relativePitch to CLAMP(yProportionalError * pitchMultiplier, -pitchLimit, pitchLimit).
+        SET relativeBearing to CLAMP(relativePitch * xProportionalError, -pitchLimit, pitchLimit).
+    }
 
-    PRINT "Change in distance to target per second: " + changeInDistanceToTargetPerSecond at (0, 5).
-    PRINT "Target Change in distance to target per second: " + targetChangeInDistanceToTargetPerSecond at (0, 6).
+    local targetBearing to RetrogradeBearing + relativeBearing.
+    local targetPitch to RetrogradePitch + relativePitch.
 
-    PRINT "Pitch Limit: " + pitchLimit at (0, 8).
-    PRINT "Relative Pitch: " + relativePitch at (0, 9).
+    // If we pitch has crossed 0 degress, we should be on the other side
+    if targetPitch < 0 { SET targetBearing to targetBearing + 180. }
 
-    PRINT "Bearing Limit: " + bearingLimit at (0, 11).
-    PRINT "Relative Bearing: " + relativeBearing at (0, 12).
+    local targetHeading to HEADING(targetBearing, targetPitch).
+
+    LOCK STEERING TO targetHeading.
+
+    PRINT "Aprox Time Remaining: " + aproxTimeRemaining at (0, 2).
+    PRINT "Distance from Impact to Target: " + impactToTargetDistance at (0, 3).
+    PRINT "Target Change in Distance to Target: " + targetChangeInDistanceToTargetPerSecond at (0, 4).
+
+    PRINT "Ship Dir to Target: " + shipDirToTarget at (0, 6).
+    PRINT "X Proportional Error: " + xProportionalError at (0, 7).
+    PRINT "Y Proportional Error: " + yProportionalError at (0, 8).
+
+    PRINT "Relative Bearing: " + relativeBearing at (0, 10).
+    PRINT "Relative Pitch: " + relativePitch at (0, 11).
+
+    PRINT "Retrograde Bearing: " + RetrogradeBearing at (0, 13).
+    PRINT "Retrograde Pitch: " + RetrogradePitch at (0, 14).
 }
 
 // - - - HELPER FUNCTIONS - - - //
