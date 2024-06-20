@@ -22,7 +22,8 @@ SET flightPhase to 0.
 SET tickLength to 0.25.
 
 // CONTROL VARIABLES //
-SET pitchLimit to 50.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
+SET pitchLimit to 7.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
+SET bearingLimit to 360.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
 
 // FLIGHT VARIABLES //
 SET ImpactPos to SHIP:GEOPOSITION.
@@ -39,6 +40,9 @@ SET suicideBurnAltError to 100.
 SET previousSuicideBurnAltError to 100. // Altitude minus est burn alt
 SET changeInSuicudeBurnAltError to 100.
 
+SET RetrogradePitch to 100.
+SET RetrogradeBearing to 100.
+
 CLEARSCREEN.
 
 GlideToPointAboveLandingSite().
@@ -50,19 +54,30 @@ UNTIL false {
     if NOT ADDONS:TR:HASIMPACT { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
 
     if flightPhase = 0 {
+        PRINT "Flight Phase: High Aerodynamic Control (1/3)" at (0, 0).
+
+        SET pitchLimit to CLAMP((600/ship:velocity:surface:mag)*40, 0, 50). // Adjust pitch limit based on velocity
+
+        // If we're coming in to the target at a steep angle, limit the bearing as we do with pitch
+        // This is useful for RTLS/Droneship not when testing by spawning right above the site
+        // Use both velocity and alitutde, when altiude is high, velocity is low, and vice versa
+        if RetrogradePitch > 30 AND ship:velocity:surface:mag > 600 { SET bearingLimit to pitchLimit. }
+        else if RetrogradePitch > 30 AND ship:altitude > 25000 { SET bearingLimit to pitchLimit. }
+        else { SET bearingLimit to 360. }
+
         GlideToTarget().
 
-        PRINT "Suicide Burn Alt Error: " + suicideBurnAltError at (0, 9).
-
-        if suicideBurnAltError < 0 { StartSuicideBurn(). } // If Suicide Burn is Required
         if altitude < 4000 { GlideToLandingSite(). }
     } else if flightPhase = 1 {
+        PRINT "Flight Phase: Final Aerodynamic Descent (2/3)" at (0, 0).
+
         GlideToTarget().
 
         PRINT "Suicide Burn Alt Error: " + suicideBurnAltError at (0, 9).
-
         if suicideBurnAltError < 0 { StartSuicideBurn(). } // If Suicide Burn is Required
     } else if flightPhase = 2 {
+        PRINT "Flight Phase: Propulsive Descent (3/3)" at (0, 0).
+
         LOCK STEERING TO SRFRETROGRADE.
 
         ControlThrottle().
@@ -73,7 +88,7 @@ function UpdateFlightVariables{
     SET ImpactPos to GetLatLngAtAltitude(TargetPosAltituide, SHIP:OBT:ETA:PERIAPSIS, 10).
 
     SET suicideBurnLength to GetSuicideBurnLength().
-    SET suicideBurnAltError to SHIP:ALTITUDE - GetSuicudeBurnAltitude() - 7. // -7 adjustment for craft height REMEMBER REMEMBER REMEMBER
+    SET suicideBurnAltError to SHIP:ALTITUDE - GetSuicudeBurnAltitude() - 6. // -7 adjustment for craft height REMEMBER REMEMBER REMEMBER
     SET changeInSuicudeBurnAltError to (previousSuicideBurnAltError - suicideBurnAltError) / tickLength.
     SET previousSuicideBurnAltError to suicideBurnAltError.
 
@@ -83,6 +98,9 @@ function UpdateFlightVariables{
     
     SET changeInDistanceToTargetPerSecond to (previousImpactToTargetDistance - impactToTargetDistance) / tickLength.
     SET previousImpactToTargetDistance to impactToTargetDistance.
+    
+    SET RetrogradePitch to vang(srfretrograde:forevector, up:forevector).
+    SET RetrogradeBearing to GetRetrogradeBearing().
 }
 
 function StartSuicideBurn {
@@ -96,7 +114,7 @@ function StartSuicideBurn {
 function GlideToPointAboveLandingSite {
     // In first glide phase, target point 4km above landing site and offset towards our position, -180 to point towards us not away
     local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
-    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * 280. // *150 to make offset 150 meters, hypotenuse
+    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * 750. // *150 to make offset 150 meters, hypotenuse
 
     SET TargetPos to AddMetersToGeoPos(targetSite, offset).
     SET TargetPosAltituide to 4000.
@@ -109,6 +127,8 @@ function GlideToLandingSite {
     // In second glide phase, target point 500m above landing site
     SET TargetPos to V(targetSite:LAT, targetSite:LNG, 0).
     SET TargetPosAltituide to 0.
+
+    SET pitchLimit to 45.
 
     SET flightPhase to 1.
     CLEARSCREEN.
@@ -132,31 +152,46 @@ function ControlThrottle {
 
     CLAMP(currentThrottle, 0, 1).
 
-    PRINT "Suicide Burn Alt Error: " + suicideBurnAltError at (0, 1).
-    PRINT "Target Change in Alt Error: " + targetChangeInAltError at (0, 2).
-    PRINT "Current Throttle: " + throttle at (0, 3).
+    PRINT "Suicide Burn Alt Error: " + suicideBurnAltError at (0, 2).
+    PRINT "Target Change in Alt Error: " + targetChangeInAltError at (0, 3).
+    PRINT "Current Throttle: " + throttle at (0, 4).
 }
 
 // TODO TODO TODO: Adjust pitch to be around retrograde, not up
 function GlideToTarget {
     // Multiply so we overcorrect, this assumes we're at terminal velocity
     // TargetPos:TERRAINHEIGHT could be use instead of ImpactPosAltitude depending on use case
-    SET aproxTimeRemaining to (SHIP:altitude - TargetPosAltituide) / (SHIP:velocity:surface:mag*2).
+    local aproxTimeRemaining to (SHIP:altitude - TargetPosAltituide) / (SHIP:velocity:surface:mag*2).
 
-    SET targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
+    local targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
 
-    SET pitch to Clamp(targetChangeInDistanceToTargetPerSecond, 0, pitchLimit).
-    SET targetHeading to Heading(impactToTargetDir-180, 90-pitch).  // -180 because aerodynamic control means we point in the opposite direction
+    local relativePitch to Clamp(targetChangeInDistanceToTargetPerSecond, 0, pitchLimit).
+    SET relativePitch to Clamp(relativePitch - RetrogradePitch, -pitchLimit, pitchLimit).
+
+    local relativeBearing to Clamp(impactToTargetDir - 180 - RetrogradeBearing, -bearingLimit, bearingLimit).
+
+    // -180 because aerodynamic control means we point in the opposite direction, + retrogradePitch so that we aren't center on up but on retrograde
+    local targetHeading to Heading(relativeBearing + RetrogradeBearing, 90 - relativePitch + retrogradePitch, 0).
 
     LOCK STEERING to targetHeading.
+    
+    // Variables relevent to relative bearing
+    PRINT "Target Bearing: " + (impactToTargetDir - 180) at (0, 14).
+    PRINT "Retrograde Bearing: " + RetrogradeBearing at (0, 15).
+    PRINT "impactToTargetDir: " + (impactToTargetDir - 180) at (0, 16).
+    PRINT "True Bearing: " + SHIP:bearing at (0, 17).
 
-    PRINT "Impact to target distance: " + impactToTargetDistance at (0, 1).
-    PRINT "Aprox Time Remaining: " + aproxTimeRemaining at (0, 2).
+    PRINT "Impact to target distance: " + impactToTargetDistance at (0, 2).
+    PRINT "Aprox Time Remaining: " + aproxTimeRemaining at (0, 3).
 
-    PRINT "Change in distance to target per second: " + changeInDistanceToTargetPerSecond at (0, 4).
-    PRINT "Target Change in distance to target per second: " + targetChangeInDistanceToTargetPerSecond at (0, 5).
+    PRINT "Change in distance to target per second: " + changeInDistanceToTargetPerSecond at (0, 5).
+    PRINT "Target Change in distance to target per second: " + targetChangeInDistanceToTargetPerSecond at (0, 6).
 
-    PRINT "Pitch: " + pitch at (0, 7).
+    PRINT "Pitch Limit: " + pitchLimit at (0, 8).
+    PRINT "Relative Pitch: " + relativePitch at (0, 9).
+
+    PRINT "Bearing Limit: " + bearingLimit at (0, 11).
+    PRINT "Relative Bearing: " + relativeBearing at (0, 12).
 }
 
 // - - - HELPER FUNCTIONS - - - //

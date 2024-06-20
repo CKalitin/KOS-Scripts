@@ -7,6 +7,7 @@ CLEARSCREEN.
 until iters > 350 {
     PRINT SHIP:BEARING at (0, 0).
     PRINT GetRetrogradeBearing() at (0, 1).
+    PRINT vang(srfretrograde:forevector, up:forevector) at (0, 0).
     PRINT "Iters: " + iters at (0, 2).
 
     SET iters to iters + 1.
