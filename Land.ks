@@ -52,6 +52,7 @@ UNTIL false {
 
     // Make better win condition later
     if NOT ADDONS:TR:HASIMPACT { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
+    if AG10 { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
 
     if flightPhase = 0 {
         PRINT "Flight Phase: High Aerodynamic Control (1/3)" at (0, 0).
@@ -168,15 +169,40 @@ function GlideToTarget {
     local relativePitch to Clamp(targetChangeInDistanceToTargetPerSecond, 0, pitchLimit).
     SET relativePitch to Clamp(relativePitch - RetrogradePitch, -pitchLimit, pitchLimit).
 
-    local relativeBearing to Clamp(impactToTargetDir - 180 - RetrogradeBearing, -bearingLimit, bearingLimit).
+    //local relativeBearing to Clamp(impactToTargetDir - 180 - RetrogradeBearing, -bearingLimit, bearingLimit).
+
+    // Temp, make function or make good later:
+    local progradeBearing to retrogradeBearing - 180.
+    if progradeBearing < 0 { SET progradeBearing to progradeBearing + 360. }
+    if progradeBearing > 360 { SET progradeBearing to progradeBearing - 360. }
+
+    // First, rotate the compass direction to the target to align our own heading as north ie. -((RetrogradeBearing-180)-impactToTargetDir)
+    // Then, then cosine, multiply by hypotenuse and take the absolute value in case of negative cos value
+    // This approach (insetad of only using direction to target) makes us only consider the x component, y is pitch, so in practice this is like yaw
+    local relativeBearing to cos(-(progradeBearing-impactToTargetDir)) * targetChangeInDistanceToTargetPerSecond.
+    if -(progradeBearing-impactToTargetDir) < 0 { SET relativeBearing to relativeBearing * -1. }
+    SET relativeBearing to Clamp(relativeBearing, -pitchLimit, pitchLimit).
 
     // -180 because aerodynamic control means we point in the opposite direction, + retrogradePitch so that we aren't center on up but on retrograde
-    local targetHeading to Heading(relativeBearing + RetrogradeBearing, 90 - relativePitch + retrogradePitch, 0).
+    local targetHeading to Heading(RetrogradeBearing + relativeBearing, 90 - relativePitch + retrogradePitch, 0).
 
     LOCK STEERING to targetHeading.
     
+    CLEARVECDRAWS().
+    SET anArrow TO VECDRAW(
+      V(0,0,0),
+      LATLNG(TargetPos:x, TargetPos:y):position,
+      RGB(1,0,0),
+      "X",
+      1.0,
+      TRUE,
+      0.2,
+      TRUE,
+      TRUE
+    ).
+
     // Variables relevent to relative bearing
-    PRINT "Target Bearing: " + (impactToTargetDir - 180) at (0, 14).
+    PRINT "Cosine: " + cos(-(progradeBearing-impactToTargetDir)) + " = cos(-(" + ROUND(progradeBearing, 3) + " - " + ROUND(impactToTargetDir, 3) + "))" at (0, 14).
     PRINT "Retrograde Bearing: " + RetrogradeBearing at (0, 15).
     PRINT "impactToTargetDir: " + (impactToTargetDir - 180) at (0, 16).
     PRINT "True Bearing: " + SHIP:bearing at (0, 17).

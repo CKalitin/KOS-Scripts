@@ -35,7 +35,7 @@ function ThrustMassTWR {
     CLEARVECDRAWS().
     SET anArrow TO VECDRAW(
       V(0,0,0),
-      geoposition:position,
+      LATLNG(TargetPos:x, TargetPos:y):position,
       RGB(1,0,0),
       "X",
       1.0,
