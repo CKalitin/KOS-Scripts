@@ -22,7 +22,7 @@ SET flightPhase to 0.
 SET tickLength to 0.25.
 
 // CONTROL VARIABLES //
-SET pitchLimit to 7.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
+SET pitchLimit to 45.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
 SET bearingLimit to 360.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
 
 // FLIGHT VARIABLES //
@@ -115,7 +115,7 @@ function StartSuicideBurn {
 function GlideToPointAboveLandingSite {
     // In first glide phase, target point 4km above landing site and offset towards our position, -180 to point towards us not away
     local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
-    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * 750. // *150 to make offset 150 meters, hypotenuse
+    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * 325. // *150 to make offset 150 meters, hypotenuse
 
     SET TargetPos to AddMetersToGeoPos(targetSite, offset).
     SET TargetPosAltituide to 4000.
@@ -150,8 +150,6 @@ function ControlThrottle {
     } else {
         LOCK THROTTLE to currentThrottle - 0.01.
     }
-
-    CLAMP(currentThrottle, 0, 1).
 
     PRINT "Suicide Burn Alt Error: " + suicideBurnAltError at (0, 2).
     PRINT "Target Change in Alt Error: " + targetChangeInAltError at (0, 3).
@@ -189,6 +187,9 @@ function GlideToTarget {
 
     // If we pitch has crossed 0 degress, we should be on the other side
     if targetPitch < 0 { SET targetBearing to targetBearing + 180. }
+
+    SET targetBearing to impactToTargetDir - 180.
+    SET targetPitch to Clamp(90 - targetChangeInDistanceToTargetPerSecond, pitchLimit, 90).
 
     local targetHeading to HEADING(targetBearing, targetPitch).
 
@@ -238,10 +239,10 @@ function GetSuicideBurnLength {
     local g to body:mu / (altitude + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration
-    local netAcc to (SHIP:MAXTHRUST / SHIP:MASS) - g.
+    local netAcc to (SHIP:MAXTHRUST / SHIP:MASS) - g - 2.
 
     // Kinematics equation to find displacement, +5 bc code isn't perfect
-    local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT, 0, 100000) + 5. 
+    local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT, 0, 100000). 
     local estBurnTime to (estBurnAlt/(0.5*netAcc))^0.5.
 
     return estBurnTime.
