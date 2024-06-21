@@ -15,7 +15,7 @@ function ThrustMassTWR {
     PRINT "Heading Pitch: " + vang(ship:facing:forevector, up:forevector) at (0, 3).
 
     // Retrograde Pitch
-    PRINT "Retrograde Pitch: " + vang(srfretrograde:forevector, up:forevector) at (0, 0).
+    PRINT "Retrograde Pitch: " + (90 - vang(srfretrograde:forevector, up:forevector)) at (0, 0).
 
     // Convert Kn to tons
     SET _thrust to SHIP:THRUST / 9.964016384.
