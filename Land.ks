@@ -260,12 +260,15 @@ function GlideToTarget {
     local pitchMultiplier to targetChangeInDistanceToTargetPerSecond * 2.
     if impactToTargetDistance < 50 { SET pitchMultiplier to (impactToTargetDistance^1.5)/15. }
 
-    if RetrogradePitch > 70 AND ship:velocity:surface:mag < 450 { SET bearingLimit to 360. }
-    else SET bearingLimit to pitchLimit.
-    
-    local shipDirToTarget to impactToTargetDir - 180 - RetrogradeBearing.
-    local bearingAndPitch to GetBearingAndPitchFromDir(shipDirToTarget, pitchMultiplier).
-    LOCK STEERING TO HEADING(bearingAndPitch:x, bearingAndPitch:y).
+    // I overengineered for 5 wasted days, this is the solution from: https://github.com/Donies1/kOS-Scripts/blob/main/heavy2fmrs.ks
+    local retrogradeVector to -ship:velocity:surface.
+    local targetVector to LatLngDiff(V(ImpactPos:lat, ImpactPos:lng, 0), TargetPos).
+    local targetDirection to retrogradeVector + targetVector * pitchMultiplier.
+
+    local angleDifference to vAng(targetVector, retrogradeVector).
+    //if angleDifference > pitchLimit { SET targetDirection to retrogradeVector:normalized + retrogradeVector:normalized*tan(pitchLimit). }
+
+    LOCK STEERING to lookDirUp(targetDirection, ship:up:forevector).
 
     PrintValue("Aprox Time Remaining", aproxTimeRemaining, 2).
     PrintValue("Distance from Impact to Target", impactToTargetDistance, 3).
@@ -273,25 +276,13 @@ function GlideToTarget {
     PrintValue("Target Change in Distance to Target", targetChangeInDistanceToTargetPerSecond, 5).
     PrintValue("Change in Distance to Target", changeInDistanceToTargetPerSecond, 6).
 
-    PrintValue("Raw Dir to Target", (impactToTargetDir - 180), 8).
-    PrintValue("Ship Dir to Target", shipDirToTarget, 9).
-
-    PrintValue("Bearing Limit", bearingLimit, 11).
-    PrintValue("Pitch Limit", pitchLimit, 12).
-    PrintValue("Pitch Multiplier", pitchMultiplier, 13).
-
-    PrintValue("Retrograde Bearing", RetrogradeBearing, 15).
-    PrintValue("Retrograde Pitch", RetrogradePitch, 16).
-
-    PrintValue("Target Bearing", bearingAndPitch:x, 18).
-    PrintValue("Target Pitch", bearingAndPitch:y, 19).
-
-    // If retrograde pitch is nearing straight up, behaviour is not correct, so, lock to straight up and ignore retrograde
-    if RetrogradePitch > 90 {
-        Print "Guidance relative to Retrograde" at (0, 27).
-
-        LOCK STEERING to HEADING(impactToTargetDir - 180, CLAMP(pitchMultiplier, 0 , pitchLimit)).
-    }
+    PrintValue("Pitch Limit", pitchLimit, 8).
+    PrintValue("Pitch Multiplier", pitchMultiplier, 9).
+    PrintValue("Angle Difference", angleDifference, 10).
+    
+    PrintValue("Retrograde Vector", retrogradeVector, 12).
+    PrintValue("Target Vector", targetVector, 13).
+    PrintValue("Target Direction", targetDirection, 14).
 }
 
 // - - - HELPER FUNCTIONS - - - //
@@ -306,7 +297,7 @@ function PrintValue {
     local parameter yPos.
 
     // 60 spaces to clear the line
-    PRINT "                                                            " at (0, yPos).
+    //PRINT "                                                            " at (0, yPos).
     PRINT label + ": " + value at (0, yPos).
 }
 
@@ -451,6 +442,16 @@ function LatLngDist {
 
     // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
     return (pos1 - pos2):MAG * 10471.975. 
+}
+
+// Returns difference between two positions in meters
+function LatLngDiff {
+    // Only x and y are used for lat/long. z is to be ignored
+    Parameter pos1.
+    Parameter pos2.
+
+    // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
+    return (pos1 - pos2) * 10471.975. 
 }
 
 // Return direction to position in degrees starting from 0 at north
