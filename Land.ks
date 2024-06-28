@@ -46,8 +46,8 @@ SET RetrogradeBearing to 100.
 CLEARSCREEN.
 
 SET gear to false.
-//StartReorientationForBoostbackBurn().
-GlideToLandingSite().
+StartReorientationForBoostbackBurn().
+//GlideToLandingSite().
 
 UNTIL false {
     // Make better win condition later
@@ -203,7 +203,7 @@ function OrientForBoostback {
     local targetHeading to HEADING(targetBearing, targetPitch).
     LOCK STEERING TO targetHeading.
 
-    local bearingError to ABS(-ship:bearing - targetBearing).
+    local bearingError to ABS(-ship:bearing - targetBearing) - 360.
     local pitchError to ABS(vang(ship:facing:forevector, up:forevector) - 90 - targetPitch). // vang(ship:facing:forevector, up:forevector) - 90 = ship pitch
 
     PrintValue("Bearing Error", bearingError, 2).
@@ -258,17 +258,22 @@ function GlideToTarget {
 
     // If impact dist < 50, do fine control that asymptotically approaches the target (but closed loop is badly tuned, so it overcorrects)
     local pitchMultiplier to targetChangeInDistanceToTargetPerSecond * 2.
-    if impactToTargetDistance < 50 { SET pitchMultiplier to (impactToTargetDistance^1.5)/15. }
+    //if impactToTargetDistance < 50 { SET pitchMultiplier to (impactToTargetDistance^1.5)/15. }
 
     // I overengineered for 5 wasted days, this is the solution from: https://github.com/Donies1/kOS-Scripts/blob/main/heavy2fmrs.ks
+    // This is in the SHIP-RAW Reference Frame https://ksp-kos.github.io/KOS_DOC/math/ref_frame.html#reference-frames
     local retrogradeVector to -ship:velocity:surface.
-    local targetVector to LatLngDiff(V(ImpactPos:lat, ImpactPos:lng, 0), TargetPos).
+
+    // :position converts from latlng to SHIP-RAW reference frame
+    local targetVector to ImpactPos:position - LATLNG(TargetPos:x, TargetPos:y):position.
     local targetDirection to retrogradeVector + targetVector * pitchMultiplier.
 
-    local angleDifference to vAng(targetVector, retrogradeVector).
-    //if angleDifference > pitchLimit { SET targetDirection to retrogradeVector:normalized + retrogradeVector:normalized*tan(pitchLimit). }
+    // If relative angle is too high, limit it.
+    // Normalize the vectors, then multiply the target direction by the tan of pitch limit to get proper x and y components
+    local angleDifference to vAng(targetDirection, retrogradeVector).
+    if angleDifference > pitchLimit { SET targetDirection to retrogradeVector:normalized + targetDirection:normalized*tan(pitchLimit). }
 
-    LOCK STEERING to lookDirUp(targetDirection, ship:up:forevector).
+    LOCK STEERING to lookDirUp(targetDirection, facing:topvector).
 
     PrintValue("Aprox Time Remaining", aproxTimeRemaining, 2).
     PrintValue("Distance from Impact to Target", impactToTargetDistance, 3).
@@ -298,7 +303,7 @@ function PrintValue {
 
     // 60 spaces to clear the line
     //PRINT "                                                            " at (0, yPos).
-    PRINT label + ": " + value at (0, yPos).
+    PRINT label + ": " + ROUND(value, 2) at (0, yPos).
 }
 
 // Instead of using raw direction as the bearing, make it relative to retrograde so it can be clamped (eg. for reentry)
