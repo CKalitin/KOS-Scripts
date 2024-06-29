@@ -19,11 +19,10 @@
 SET targetSite to LATLNG(-0.185407556445315, -74.4729356049979).
 
 SET flightPhase to 0.
-SET tickLength to 0.25.
+SET tickLength to 0.1.
 
 // CONTROL VARIABLES //
-SET pitchLimit to 45.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
-SET bearingLimit to 360.  // Pitch limit has to be high to counter act the undercorrection of kOS steering lock
+SET pitchLimit to 45.
 
 // FLIGHT VARIABLES //
 SET ImpactPos to SHIP:GEOPOSITION.
@@ -40,10 +39,15 @@ SET suicideBurnAltError to 100.
 SET previousSuicideBurnAltError to 100. // Altitude minus est burn alt
 SET changeInSuicudeBurnAltError to 100.
 
+SET TargetVerticalVelocity to 0.
+SET ChangeInVerticalVelocity to 1.
+SET previousVerticalVelocity to 1.
+
 SET RetrogradePitch to 100.
 SET RetrogradeBearing to 100.
 
 CLEARSCREEN.
+CLEARVECDRAWS().
 
 SET gear to false.
 StartReorientationForBoostbackBurn().
@@ -56,8 +60,8 @@ UNTIL false {
 
     UpdateFlightVariables().
 
-    drawLineToTarget().
-    drawLineToImpact().
+    //drawLineToTarget().
+    //drawLineToImpact().
 
     if flightPhase = 0 {
         PRINT "Flight Phase: Orient For Boostback (1/6)" at (0, 0).
@@ -84,17 +88,16 @@ UNTIL false {
 
         GlideToTarget().
 
-        //PrintValue("Suicude Burn Alt Error", suicideBurnAltError, 9).
-        if suicideBurnAltError < 0 { StartSuicideBurn(). } // If Suicide Burn is Required
+        PrintValue("Suicude Burn Alt Error", suicideBurnAltError, 11).
+        if suicideBurnAltError < 10 { StartSuicideBurn(). } // If Suicide Burn is Required, start 100m "early"
     } else if flightPhase = 4 {
         PRINT "Flight Phase: Propulsive Descent (5/6)" at (0, 0).
 
         SET gear to alt:radar < 300.
 
-        ControlSuicideBurnThrottle().
-        ControlSuicideBurnHeading().
+        ControlSuicideBurn().
 
-        if alt:radar < TargetPosAltituide OR ship:velocity:surface:mag < 2 { StartTouchdown. }
+        if alt:radar < TargetPosAltituide OR ship:velocity:surface:mag < 15 { StartTouchdown. }
     } else if flightPhase = 5{
         PRINT "Flight Phase: Soft Touchdown (6/6)" at (0, 0).
 
@@ -119,6 +122,9 @@ function UpdateFlightVariables{
     
     SET changeInDistanceToTargetPerSecond to (previousImpactToTargetDistance - impactToTargetDistance) / tickLength.
     SET previousImpactToTargetDistance to impactToTargetDistance.
+
+    SET ChangeInVerticalVelocity to -(previousVerticalVelocity - GetVerticalVelocity()) / tickLength.
+    SET previousVerticalVelocity to GetVerticalVelocity().
     
     SET RetrogradePitch to 90 - vang(srfretrograde:forevector, up:forevector).
     SET RetrogradeBearing to GetRetrogradeBearing().
@@ -154,7 +160,7 @@ function GlideToLandingSite {
 
     // Offset to opposite of current position, try to slightly overshoot so that we can cancel out horizontal velocity on the way down
     local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
-    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * -10. // *150 to make offset 150 meters, hypotenuse
+    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * -30. // *150 to make offset 150 meters, hypotenuse
 
     SET TargetPos to AddMetersToGeoPos(targetSite, offset).
     SET TargetPosAltituide to 0.
@@ -166,13 +172,16 @@ function GlideToLandingSite {
 }
 
 function StartSuicideBurn {
-    SET TargetPos to V(targetSite:LAT, targetSite:LNG, 0).
-    SET TargetPosAltituide to 20.
+    // Offset to opposite of current position, try to slightly overshoot so that we can cancel out horizontal velocity on the way down
+    local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
+    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * -20. // *150 to make offset 150 meters, hypotenuse
+
+    SET TargetPos to AddMetersToGeoPos(targetSite, offset).
+    SET TargetPosAltituide to 15.
 
     LOCK THROTTLE TO 0.8. 
 
-    SET pitchLimit to 15.
-    SET bearingLimit to 360.
+    SET pitchLimit to 10.
 
     SET flightPhase to 4. 
     CLEARSCREEN. 
@@ -180,6 +189,9 @@ function StartSuicideBurn {
 
 function StartTouchdown {
     SET TargetPosAltituide to 0. 
+    SET TargetVerticalVelocity to -2.
+
+    SET pitchLimit to 5.
 
     SET flightPhase to 5. 
     CLEARSCREEN. 
@@ -191,10 +203,6 @@ function StartTouchdown {
 // - - - FLIGHT FUNCTIONS - - - //
 // - - - FLIGHT FUNCTIONS - - - //
 
-function SoftTouchdown {
-    
-}
-
 function OrientForBoostback {
     // Heading Control
     local targetBearing to impactToTargetDir.
@@ -203,16 +211,11 @@ function OrientForBoostback {
     local targetHeading to HEADING(targetBearing, targetPitch).
     LOCK STEERING TO targetHeading.
 
-    local bearingError to ABS(-ship:bearing - targetBearing) - 360.
-    local pitchError to ABS(vang(ship:facing:forevector, up:forevector) - 90 - targetPitch). // vang(ship:facing:forevector, up:forevector) - 90 = ship pitch
+    local directionError to vAng(targetHeading:vector, ship:facing:vector).
 
-    PrintValue("Bearing Error", bearingError, 2).
-    PrintValue("Pitch Error", pitchError, 3).
+    PrintValue("Direction Error", directionError, 2).
 
-    PrintValue("Ship Bearing", -ship:bearing, 5).
-    PrintValue("Target Bearing", targetBearing, 6).
-
-    if bearingError < 15 AND pitchError < 15 { StartBoostbackBurn(). }
+    if directionError < 15 { StartBoostbackBurn(). }
 }
 
 function Boostback {
@@ -226,54 +229,15 @@ function Boostback {
     if impactToTargetDistance < 500 OR changeInDistanceToTargetPerSecond < -50 { LOCK throttle to 0. GlideToPointAboveLandingSite(). }
 }
 
-function ControlSuicideBurnThrottle {
-    local targetChangeInAltError to suicideBurnAltError / suicideBurnLength * 2. // why *2?
-    local currentThrottle to THROTTLE.
-
-    // Proportional throttle control
-    local throttleChange to CLAMP(targetChangeInAltError/2, 0.01, 0.05).
-
-    if changeInSuicudeBurnAltError > targetChangeInAltError {
-        LOCK THROTTLE to CLAMP(currentThrottle + throttleChange, 0, 1).
-    } else {
-        LOCK THROTTLE to CLAMP(currentThrottle - throttleChange, 0, 1).
-    }
-
-    PrintValue("Suicide Burn Alt Error", suicideBurnAltError, 2).
-    PrintValue("Target Change in Alt Error", targetChangeInAltError, 3).
-
-    PrintValue("Throttle Change", ROUND(throttleChange, 2), 5).
-
-    PrintValue("Current Throttle", Round(throttle, 2), 7).
-}
-
-function ControlSuicideBurnHeading {
-    local pitchMultiplier to CLAMP((impactToTargetDistance^1.5)/10, 0, pitchLimit).
-    LOCK STEERING TO HEADING(impactToTargetDir, pitchMultiplier).
-}
-
 function GlideToTarget {
-    local aproxTimeRemaining to (SHIP:altitude - TargetPosAltituide) / (SHIP:velocity:surface:mag*2) / 2. // divide by 1.5 so you get to the target faster
+    local aproxTimeRemaining to (SHIP:altitude - TargetPosAltituide) / (SHIP:velocity:surface:mag*2). // Assuming terminal velocity
     local targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
 
-    // If impact dist < 50, do fine control that asymptotically approaches the target (but closed loop is badly tuned, so it overcorrects)
-    local pitchMultiplier to targetChangeInDistanceToTargetPerSecond * 2.
-    //if impactToTargetDistance < 50 { SET pitchMultiplier to (impactToTargetDistance^1.5)/15. }
+    // If impact dist < 50, do fine control that asymptotically approaches the target, avoid large overcorrection
+    local pitchMultiplier to targetChangeInDistanceToTargetPerSecond * 2.5.
+    if impactToTargetDistance < 50 { SET pitchMultiplier to (impactToTargetDistance^1.6)/15. }
 
-    // I overengineered for 5 wasted days, this is the solution from: https://github.com/Donies1/kOS-Scripts/blob/main/heavy2fmrs.ks
-    // This is in the SHIP-RAW Reference Frame https://ksp-kos.github.io/KOS_DOC/math/ref_frame.html#reference-frames
-    local retrogradeVector to -ship:velocity:surface.
-
-    // :position converts from latlng to SHIP-RAW reference frame
-    local targetVector to ImpactPos:position - LATLNG(TargetPos:x, TargetPos:y):position.
-    local targetDirection to retrogradeVector + targetVector * pitchMultiplier.
-
-    // If relative angle is too high, limit it.
-    // Normalize the vectors, then multiply the target direction by the tan of pitch limit to get proper x and y components
-    local angleDifference to vAng(targetDirection, retrogradeVector).
-    if angleDifference > pitchLimit { SET targetDirection to retrogradeVector:normalized + targetDirection:normalized*tan(pitchLimit). }
-
-    LOCK STEERING to lookDirUp(targetDirection, facing:topvector).
+    LOCK STEERING TO GetSteeringRelativeToRetrograde(pitchMultiplier).
 
     PrintValue("Aprox Time Remaining", aproxTimeRemaining, 2).
     PrintValue("Distance from Impact to Target", impactToTargetDistance, 3).
@@ -283,11 +247,67 @@ function GlideToTarget {
 
     PrintValue("Pitch Limit", pitchLimit, 8).
     PrintValue("Pitch Multiplier", pitchMultiplier, 9).
-    PrintValue("Angle Difference", angleDifference, 10).
-    
-    PrintValue("Retrograde Vector", retrogradeVector, 12).
-    PrintValue("Target Vector", targetVector, 13).
-    PrintValue("Target Direction", targetDirection, 14).
+}
+
+function ControlSuicideBurn {
+    local targetChangeInAltError to (suicideBurnAltError / suicideBurnLength) * 6. // *4 so that we correct throttle in a fourth of remaining time
+    local currentThrottle to THROTTLE.
+
+    // Proportional throttle control
+    local throttleChange to CLAMP(ABS(targetChangeInAltError), 0.01, 0.05).
+
+    if changeInSuicudeBurnAltError > targetChangeInAltError {
+        LOCK THROTTLE to CLAMP(currentThrottle + throttleChange, 0, 1).
+    } else {
+        LOCK THROTTLE to CLAMP(currentThrottle - throttleChange, 0, 1).
+    }
+
+    // There is a trade off between using aerodynamic control and propulsive contorl
+    // At the right time we must switch between these two modes by flipping our heading relative to retrograde
+    local headingMultiplier to 1.
+    if ship:velocity:surface:mag < 180 { SET headingMultiplier to -1. }
+
+    local pitchMultiplier to CLAMP((impactToTargetDistance^1.5)/10, 0, pitchLimit).
+    LOCK STEERING TO GetSteeringRelativeToRetrograde(pitchMultiplier * headingMultiplier).
+
+    PrintValue("Pitch Multiplier", pitchMultiplier, 2).
+    PrintValue("Heading Multiplier", headingMultiplier, 3).
+
+    PrintValue("Suicide Burn Alt Error", suicideBurnAltError, 5).
+    PrintValue("Target Change in Alt Error", targetChangeInAltError, 6).
+
+    PrintValue("Throttle Change", ROUND(throttleChange, 2), 8).
+
+    PrintValue("Current Throttle", Round(throttle, 2), 10).
+}
+
+function SoftTouchdown {
+    local aproxTimeRemaining to (SHIP:altitude - TargetPosAltituide) / (SHIP:velocity:surface:mag*2). // Assuming Constant Velocity
+    SET aproxTimeRemaining to CLAMP(aproxTimeRemaining, 0, 10). // Clamp to 10 seconds, incase you want to hover
+
+    local pitchMultiplier to (GetHorizationVelocity():MAG / aproxTimeRemaining) * 25.
+    LOCK STEERING TO HEADING(RetrogradeBearing, 90 - pitchMultiplier, 0).
+
+    local baseThrottle to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02. // Kn to tons, -0.02 adjustment
+    local targetChangeInVerticalVelocity to (TargetVerticalVelocity - GetVerticalVelocity()) / aproxTimeRemaining * tickLength * 10.
+    local throttleChange to CLAMP(targetChangeInVerticalVelocity, -0.1, 0.1).
+
+    LOCK throttle to baseThrottle + throttleChange.
+
+    PrintValue("Aprox Time Remaining", aproxTimeRemaining, 2).
+
+    PrintValue("Vertical Velocity", GetVerticalVelocity(), 4).
+    PrintValue("Target Vertical Velocity", TargetVerticalVelocity, 5).
+
+    PrintValue("Change in Vertical Velocity", ChangeInVerticalVelocity, 7).
+    PrintValue("Target Change in Vertical Velocity", targetChangeInVerticalVelocity, 8).
+
+    PrintValue("Base Throttle", baseThrottle, 10).
+    PrintValue("Throttle Change", throttleChange, 11).
+
+    PrintValue("Current Throttle", throttle, 13).
+
+    PrintValue("Pitch Multiplier", pitchMultiplier, 15).
 }
 
 // - - - HELPER FUNCTIONS - - - //
@@ -295,50 +315,36 @@ function GlideToTarget {
 // - - - HELPER FUNCTIONS - - - //
 // - - - HELPER FUNCTIONS - - - //
 // - - - HELPER FUNCTIONS - - - //
+
+// I overengineered for 5 wasted days, this is the solution from: https://github.com/Donies1/kOS-Scripts/blob/main/heavy2fmrs.ks
+function GetSteeringRelativeToRetrograde {
+    local Parameter pitchMultiplier.
+
+    // Retrograde vector is in the SHIP-RAW Reference Frame https://ksp-kos.github.io/KOS_DOC/math/ref_frame.html#reference-frames
+    local retrogradeVector to -ship:velocity:surface.
+
+    // :position converts from latlng to SHIP-RAW reference frame
+    // Refactoring needed to minimize transforming values like LatLng
+    local targetVector to ImpactPos:position - LATLNG(TargetPos:x, TargetPos:y):position.
+    local targetDirection to retrogradeVector + targetVector * pitchMultiplier.
+
+    // If relative angle is too high, limit it.
+    // Normalize the vectors, then multiply the target direction by the tan of pitch limit to get proper x and y components
+    local angleDifference to vAng(targetDirection, retrogradeVector). // Angle of two cartesians
+    if angleDifference > pitchLimit { SET targetDirection to retrogradeVector:normalized + targetDirection:normalized*tan(pitchLimit). }
+
+    return lookDirUp(targetDirection, facing:topvector).
+}
 
 function PrintValue {
     local Parameter label.
     local Parameter value.
     local parameter yPos.
 
-    // 60 spaces to clear the line
-    //PRINT "                                                            " at (0, yPos).
-    PRINT label + ": " + ROUND(value, 2) at (0, yPos).
-}
+    if value:typename = "SCALAR" { SET value to ROUND(value, 5). }
 
-// Instead of using raw direction as the bearing, make it relative to retrograde so it can be clamped (eg. for reentry)
-// Returns as vector with x as bearing and y as pitch
-function GetBearingAndPitchFromDir {
-    local parameter dir.
-    local parameter pitchMultiplier.
-
-    // Get X and Y errors individually so that bearing and pitch can be clamped separately
-    local xProportionalError to sin(dir).
-    local yProportionalError to cos(dir).
-
-    // Set the larger value to 1, adjust the smaller value accordingly, this way the maneuver is proportional in both x and y
-    if ABS(xProportionalError) < ABS(yProportionalError) { 
-        SET xProportionalError to xProportionalError/ABS(yProportionalError).
-        SET yProportionalError to yProportionalError/ABS(yProportionalError).
-    } else { 
-        SET yProportionalError to yProportionalError/ABS(xProportionalError). 
-        SET xProportionalError to xProportionalError/ABS(xProportionalError). 
-    }
-
-    local relativeBearing to CLAMP(xProportionalError * pitchMultiplier, -bearingLimit, bearingLimit).
-    local relativePitch to -CLAMP(yProportionalError * pitchMultiplier, -pitchLimit, pitchLimit).
-    
-    PrintValue("Relative Bearing", relativeBearing, 21).
-    PrintValue("Relative Pitch", relativePitch, 22).
-
-    PrintValue("X Proportional Error", xProportionalError, 24).
-    PrintValue("Y Proportional Error", yProportionalError, 25).
-
-
-    local targetBearing to RetrogradeBearing + relativeBearing.
-    local targetPitch to RetrogradePitch + relativePitch.
-
-    return V(targetBearing, targetPitch, 0).
+    // Add 10 blank spaces to clear previous value
+    PRINT label + ": " + value + "          " at (0, yPos).
 }
 
 function drawLineToTarget {
@@ -492,7 +498,7 @@ function GetHorizationVelocity {
 }
 
 function GetVerticalVelocity {
-    return vDot(ship:velocity:surface, ship:north:TOPVECTOR).
+    return -1 * vDot(ship:velocity:surface, ship:north:TOPVECTOR).
 }
 
 function Clamp {
