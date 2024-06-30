@@ -1,5 +1,3 @@
-// Landing from 70km up
-
 // Sites:
 // Launch Pad: -0.09729775, -74.55767274
 // North Landing Pad: -0.185407556445315, -74.4729356049979
