@@ -1,3 +1,5 @@
+@LAZYGLOBAL OFF.
+
 // Many global variables are called (eg. ImpactPos), these are defined in the main script
 
 // - - - Flight Functions - - - //
@@ -7,6 +9,7 @@
 // - - - Flight Functions - - - //
 
 // I overengineered for 5 wasted days, this is the solution from: https://github.com/Donies1/kOS-Scripts/blob/main/heavy2fmrs.ks
+// This functions steers the ship relative to retrograde towards the target position, it's simple
 function GetSteeringRelativeToRetrograde {
     local Parameter pitchMultiplier.
 
@@ -34,7 +37,7 @@ function GetSuicudeBurnAltitude {
     local g to body:mu / (TrueAltituide + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration, *0.8 to further undercalculate
-    local netAcc to (SHIP:AVAILABLETHRUST*0.85 / SHIP:MASS) - g.
+    local netAcc to (SHIP:AVAILABLETHRUST*0.9 / SHIP:MASS) - g.
 
     // Kinematics equation to find displacement
     local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltituide, 0, 100000). 
@@ -103,8 +106,8 @@ function GetRetrogradeBearing {
 // Return east/west and north/south components of velocity
 function GetHorizationVelocity {
     // https://www.reddit.com/r/Kos/comments/bwy79n/clarifications_on_shipvelocitysurface/
-    SET vEast to -vDot(ship:velocity:surface, ship:north:starvector).
-    SET vNorth to vDot(ship:velocity:surface, ship:north:forevector).
+    local vEast to -vDot(ship:velocity:surface, ship:north:starvector).
+    local vNorth to vDot(ship:velocity:surface, ship:north:forevector).
     return v(vEast, vNorth, 0).
 }
 
@@ -122,20 +125,57 @@ function GetOffsetPosFromTargetPos {
     return offset.
 }
 
+function GetImpactPos {
+    if TargetPosAltitude = 0 AND ADDONS:TR:HASIMPACT {return ADDONS:TR:IMPACTPOS. }
+    else { return GetLatLngAtAltitude(TargetPosAltitude, SHIP:OBT:ETA:PERIAPSIS, 1). }
+}
+
+// Naming variables only used in this function: Function name + _ + variable name
+// It should only be called once per LOCK / per frame
+// Because we're using LOCK, we need to record time to calculate change per second
+DECLARE LOCAL GetChangeInDistanceToTargetPerSecond_PreviousDistance to 1.
+DECLARE LOCAL GetChangeInDistanceToTargetPerSecond_PreviousTime IS TIME:SECONDS.
+function GetChangeInDistanceToTargetPerSecond {
+    local currentTimeDistToTar to TIME:SECONDS.
+    local timeDiffDistToTar to currentTimeDistToTar - GetChangeInDistanceToTargetPerSecond_PreviousTime.
+    SET GetChangeInDistanceToTargetPerSecond_PreviousTime to currentTimeDistToTar.
+
+    local currentDist to LatLngDist(ImpactPos:position, TargetPos).
+    local distDiff to currentDist - GetChangeInDistanceToTargetPerSecond_PreviousDistance.
+    SET GetChangeInDistanceToTargetPerSecond_PreviousDistance to currentDist.
+
+    return distDiff/timeDiffDistToTar.
+}
+
+// GLOBAL / LOCAL TESTING TESTING TESTING in this function and above
+DECLARE GLOBAL GetChangeInVerticalVelocity_PreviousVelocity to 1.
+DECLARE GLOBAL GetChangeInVerticalVelocity_PreviousTime IS TIME:SECONDS.
+function GetChangeInVerticalVelocity {
+    local currentTimeVertVel to TIME:SECONDS.
+    local timeDiffVertVel to currentTimeVertVel - GetChangeInVerticalVelocity_PreviousTime.
+    SET GetChangeInVerticalVelocity_PreviousTime to currentTimeVertVel.
+
+    local currentVel to GetVerticalVelocity().
+    local velDiff to currentVel - GetChangeInVerticalVelocity_PreviousVelocity.
+    SET GetChangeInVerticalVelocity_PreviousVelocity to currentVel.
+
+    return velDiff/timeDiffVertVel.
+}
+
 // - - - Mathematical Functions - - - //
 // - - - Mathematical Functions - - - //
 // - - - Mathematical Functions - - - //
 // - - - Mathematical Functions - - - //
 // - - - Mathematical Functions - - - //
 
-// Add meters to geo position and return as vector with lat/lng values
+// Add meters to geo position and return as latlng
 function AddMetersToGeoPos{
     // Both vectors, z is to be ignored when dealing with latlngs
     local Parameter geopos.
     local Parameter meters.
 
     // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
-    return V(geopos:lat + meters:x/10471.975, geopos:lng + meters:y/10471.975, 0). 
+    return LATLNG(geopos:lat + meters:x/10471.975, geopos:lng + meters:y/10471.975). 
 }
 
 function Lerp {
@@ -147,31 +187,21 @@ function Lerp {
 }
 
 function Clamp {
-    Parameter value.
-    Parameter minValue.
-    Parameter maxValue.
+    local Parameter value.
+    local Parameter minValue.
+    local Parameter maxValue.
 
     if value < minValue { return minValue. }
     if value > maxValue { return maxValue. }
     return value.
 }
 
-// Returns difference between two positions in meters
-function LatLngDiff {
-    // Only x and y are used for lat/long. z is to be ignored
-    Parameter pos1.
-    Parameter pos2.
-
-    // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
-    return (pos1 - pos2) * 10471.975. 
-}
-
-// Get distance between two positions without considering the altitude
+// Get distance between two positions IN METERS without considering the altitude
 // Eg. LatLngDist(V(SHIP:GEOPOSITION:LAT, SHIP:GEOPOSITION:LNG, 0), V(-0.09729775,-74.55767274,0))
 function LatLngDist {
     // Only x and y are used for lat/long. z is to be ignored
-    Parameter pos1.
-    Parameter pos2.
+    local Parameter pos1.
+    local Parameter pos2.
 
     // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
     return (pos1 - pos2):MAG * 10471.975. 
@@ -179,11 +209,14 @@ function LatLngDist {
 
 // Return direction to position in degrees starting from 0 at north
 function DirToPoint {
-    // Only x and y are used for lat/long. z is to be ignored
-    Parameter pos1.
-    Parameter pos2.
+    local Parameter pos1.
+    local Parameter pos2.
 
-    SET diff to pos2 - pos1.
+    // So that either LATLNG() or V() can be entered
+    If pos1:typename = "GeoCoordinates" { SET pos1 to V(pos1:lat, pos1:lng, 0). }
+    If pos2:typename = "GeoCoordinates" { SET pos2 to V(pos2:lat, pos2:lng, 0). }
+
+    local diff to pos2 - pos1.
 
     // atan2 resolves arctan ambiguity (ASTC quadrants)
     // Reversing x and y to rotate by 90 degrees so we start at 0 degrees at north, usualy ATAN(Y, X)
@@ -213,8 +246,7 @@ function PrintValue {
 }
 
 function drawLineToTarget {
-    CLEARVECDRAWS().
-    SET arrowToTarget TO VECDRAW(
+    local arrowToTarget TO VECDRAW(
       V(0,0,0),
       LATLNG(TargetPos:x, TargetPos:y):position,
       RGB(1,0,0),
@@ -228,7 +260,7 @@ function drawLineToTarget {
 }
 
 function drawLineToImpact {
-    SET arrowToImpact TO VECDRAW(
+    local arrowToImpact TO VECDRAW(
       V(0,0,0),
       ImpactPos:position,
       RGB(0,1,0),
