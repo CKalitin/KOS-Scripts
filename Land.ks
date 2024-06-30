@@ -4,12 +4,6 @@
 // Launch Pad: -0.09729775, -74.55767274
 // North Landing Pad: -0.185407556445315, -74.4729356049979
 
-// Flight Phases
-// 0: Aerodynamic Control down to point near landing site at ~5000m
-// 1: Fine aerodynamic control aiming for landing site
-// 2: When alt - est burn altitude < 0, fire engines and modulate until reach point above landing site
-// 3: Touchdown, kill horizontal velocity and center above landing site
-
 // TODO: Redo variables in loop with Lock instead of set, this is how kOS is meant to be used
 // Also, 0.1 tick length does not mean 10 ticks is one second
 
@@ -23,6 +17,7 @@ SET tickLength to 0.1.
 
 // CONTROL VARIABLES //
 SET pitchLimit to 45.
+SET craftHeight to 7. // Adjust to true radar altitude, not quite full craft height just where its controlled from
 
 // FLIGHT VARIABLES //
 SET ImpactPos to SHIP:GEOPOSITION.
@@ -82,14 +77,14 @@ UNTIL false {
 
         GlideToTarget().
 
-        if altitude < 5000 { GlideToLandingSite(). }
+        if altitude < 4000 { GlideToLandingSite(). }
     } else if flightPhase = 3 {
         PRINT "Flight Phase: Final Aerodynamic Descent (4/6)" at (0, 0).
 
         GlideToTarget().
 
         PrintValue("Suicude Burn Alt Error", suicideBurnAltError, 11).
-        if suicideBurnAltError < 10 { StartSuicideBurn(). } // If Suicide Burn is Required, start 100m "early"
+        if suicideBurnAltError < 0 { StartSuicideBurn(). } // If Suicide Burn is Required
     } else if flightPhase = 4 {
         PRINT "Flight Phase: Propulsive Descent (5/6)" at (0, 0).
 
@@ -97,11 +92,14 @@ UNTIL false {
 
         ControlSuicideBurn().
 
-        if alt:radar < TargetPosAltituide OR ship:velocity:surface:mag < 15 { StartTouchdown. }
+        if alt:radar < TargetPosAltituide OR ABS(ship:velocity:surface:mag) < 45 { StartTouchdown. }
     } else if flightPhase = 5{
         PRINT "Flight Phase: Soft Touchdown (6/6)" at (0, 0).
 
         SET gear to alt:radar < 300.
+
+        local t to (alt:radar - craftHeight) / 25.
+        SET TargetVerticalVelocity to Lerp(-2, -5, CLAMP(t, 0, 1)).
 
         SoftTouchdown().
     }
@@ -112,7 +110,7 @@ function UpdateFlightVariables{
     else SET ImpactPos to GetLatLngAtAltitude(TargetPosAltituide, SHIP:OBT:ETA:PERIAPSIS, 1).
 
     SET suicideBurnLength to GetSuicideBurnLength().
-    SET suicideBurnAltError to SHIP:ALTITUDE - GetSuicudeBurnAltitude() - 6. // -7 adjustment for craft height REMEMBER REMEMBER REMEMBER
+    SET suicideBurnAltError to SHIP:ALTITUDE - GetSuicudeBurnAltitude() - craftHeight. // -7 adjustment for craft height REMEMBER REMEMBER REMEMBER
     SET changeInSuicudeBurnAltError to (previousSuicideBurnAltError - suicideBurnAltError) / tickLength.
     SET previousSuicideBurnAltError to suicideBurnAltError.
 
@@ -145,7 +143,7 @@ function StartBoostbackBurn {
 function GlideToPointAboveLandingSite {
     // In first glide phase, target point 4km above landing site and offset towards our position, -180 to point towards us not away
     local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
-    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * 0. // *150 to make offset 150 meters, hypotenuse
+    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * 0. // 0 meter offset at this stage of flight
 
     SET TargetPos to AddMetersToGeoPos(targetSite, offset).
     SET TargetPosAltituide to 0.
@@ -160,7 +158,7 @@ function GlideToLandingSite {
 
     // Offset to opposite of current position, try to slightly overshoot so that we can cancel out horizontal velocity on the way down
     local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
-    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * -30. // *150 to make offset 150 meters, hypotenuse
+    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * -30.
 
     SET TargetPos to AddMetersToGeoPos(targetSite, offset).
     SET TargetPosAltituide to 0.
@@ -172,12 +170,13 @@ function GlideToLandingSite {
 }
 
 function StartSuicideBurn {
-    // Offset to opposite of current position, try to slightly overshoot so that we can cancel out horizontal velocity on the way down
+    // Offset to opposite of current position, try to slightly overshoot so that we can cancel out horizontal velocity on the way down and land on target without much complexity
     local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
-    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * -20. // *150 to make offset 150 meters, hypotenuse
+    local magnitude to -(GetHorizationVelocity():mag^1.67) / 45. // Offset by multiple of current horizontal velocity
+    SET offset to V(cos(offsetDir), sin(offsetDir), 0) * magnitude.
 
     SET TargetPos to AddMetersToGeoPos(targetSite, offset).
-    SET TargetPosAltituide to 15.
+    SET TargetPosAltituide to 25.
 
     LOCK THROTTLE TO 0.8. 
 
@@ -189,9 +188,8 @@ function StartSuicideBurn {
 
 function StartTouchdown {
     SET TargetPosAltituide to 0. 
-    SET TargetVerticalVelocity to -2.
 
-    SET pitchLimit to 5.
+    SET pitchLimit to 10.
 
     SET flightPhase to 5. 
     CLEARSCREEN. 
@@ -285,14 +283,14 @@ function SoftTouchdown {
     local aproxTimeRemaining to (SHIP:altitude - TargetPosAltituide) / (SHIP:velocity:surface:mag*2). // Assuming Constant Velocity
     SET aproxTimeRemaining to CLAMP(aproxTimeRemaining, 0, 10). // Clamp to 10 seconds, incase you want to hover
 
-    local pitchMultiplier to (GetHorizationVelocity():MAG / aproxTimeRemaining) * 25.
+    local pitchMultiplier to (GetHorizationVelocity():MAG / aproxTimeRemaining) * 5.
     LOCK STEERING TO HEADING(RetrogradeBearing, 90 - pitchMultiplier, 0).
 
-    local baseThrottle to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02. // Kn to tons, -0.02 adjustment
+    local baseThrottle to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02. // Hover, Kn to tons, -0.02 adjustment
     local targetChangeInVerticalVelocity to (TargetVerticalVelocity - GetVerticalVelocity()) / aproxTimeRemaining * tickLength * 10.
-    local throttleChange to CLAMP(targetChangeInVerticalVelocity, -0.1, 0.1).
+    local throttleChange to CLAMP(targetChangeInVerticalVelocity, -0.5, 0.5).
 
-    LOCK throttle to baseThrottle + throttleChange.
+    LOCK throttle to CLAMP(baseThrottle + throttleChange, 0, 1).
 
     PrintValue("Aprox Time Remaining", aproxTimeRemaining, 2).
 
@@ -384,7 +382,7 @@ function GetSuicudeBurnAltitude {
     local g to body:mu / (altitude + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration, *0.8 to further undercalculate
-    local netAcc to (SHIP:AVAILABLETHRUST*0.8 / SHIP:MASS) - g.
+    local netAcc to (SHIP:AVAILABLETHRUST*0.85 / SHIP:MASS) - g.
 
     // Kinematics equation to find displacement
     local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltituide, 0, 100000). 
@@ -399,7 +397,7 @@ function GetSuicideBurnLength {
     local g to body:mu / (altitude + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration
-    local netAcc to (SHIP:AVAILABLETHRUST*0.8 / SHIP:MASS) - g .
+    local netAcc to (SHIP:AVAILABLETHRUST*0.9 / SHIP:MASS) - g.
 
     // Kinematics equation to find displacement
     local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltituide, 0, 100000). 
@@ -519,4 +517,12 @@ function AddMetersToGeoPos{
 
     // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
     return V(geopos:lat + meters:x/10471.975, geopos:lng + meters:y/10471.975, 0). 
+}
+
+function Lerp {
+    local Parameter a.
+    local Parameter b.
+    local Parameter t.
+
+    return a + (b - a) * t.
 }
