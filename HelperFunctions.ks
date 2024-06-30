@@ -1,3 +1,4 @@
+// Many global variables are called (eg. ImpactPos), these are defined in the main script
 
 // - - - Flight Functions - - - //
 // - - - Flight Functions - - - //
@@ -30,7 +31,7 @@ function GetSteeringRelativeToRetrograde {
 function GetSuicudeBurnAltitude {
     if SHIP:AVAILABLETHRUST = 0 { return 1. }
 
-    local g to body:mu / (altitude + body:radius)^2.
+    local g to body:mu / (TrueAltituide + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration, *0.8 to further undercalculate
     local netAcc to (SHIP:AVAILABLETHRUST*0.85 / SHIP:MASS) - g.
@@ -45,7 +46,7 @@ function GetSuicudeBurnAltitude {
 function GetSuicideBurnLength {
     if SHIP:AVAILABLETHRUST = 0 { return 1. }
 
-    local g to body:mu / (altitude + body:radius)^2.
+    local g to body:mu / (TrueAltituide + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration
     local netAcc to (SHIP:AVAILABLETHRUST*0.9 / SHIP:MASS) - g.
@@ -109,6 +110,16 @@ function GetHorizationVelocity {
 
 function GetVerticalVelocity {
     return -1 * vDot(ship:velocity:surface, ship:north:TOPVECTOR).
+}
+
+// From the direction from the ship to the target and a magnitude, return an offset in the direction of the ship in lat/lng (either metres or degrees depending on magnitude value)
+function GetOffsetPosFromTargetPos {
+    local Parameter magnitude.
+
+    local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
+    local offset to V(cos(offsetDir), sin(offsetDir), 0) * magnitude.
+
+    return offset.
 }
 
 // - - - Mathematical Functions - - - //
