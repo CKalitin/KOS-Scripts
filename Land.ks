@@ -140,7 +140,7 @@ function StartBoostbackBurn {
 }
 
 function GlideToPointAboveLandingSite {
-    SET TargetPos to AddMetersToGeoPos(targetSite, V(0, 0, 0)).
+    SET TargetPos to V(targetSite:LAT, targetSite:LNG, 0).
     SET TargetPosAltituide to 0.
 
     SET flightPhase to 2.

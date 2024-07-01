@@ -11,7 +11,7 @@
 // I overengineered for 5 wasted days, this is the solution from: https://github.com/Donies1/kOS-Scripts/blob/main/heavy2fmrs.ks
 // This functions steers the ship relative to retrograde towards the target position, it's simple
 function GetSteeringRelativeToRetrograde {
-    local Parameter pitchMultiplier.
+    local Parameter pitchMultiplierLocalSteerRetrograde. // Local variable naming like this is stupid
 
     // Retrograde vector is in the SHIP-RAW Reference Frame https://ksp-kos.github.io/KOS_DOC/math/ref_frame.html#reference-frames
     local retrogradeVector to -ship:velocity:surface.
@@ -19,7 +19,7 @@ function GetSteeringRelativeToRetrograde {
     // :position converts from latlng to SHIP-RAW reference frame
     // Refactoring needed to minimize transforming values like LatLng
     local targetVector to ImpactPos:position - LATLNG(TargetPos:x, TargetPos:y):position.
-    local targetDirection to retrogradeVector + targetVector * pitchMultiplier.
+    local targetDirection to retrogradeVector + targetVector * pitchMultiplierLocalSteerRetrograde.
 
     // If relative angle is too high, limit it.
     // Normalize the vectors, then multiply the target direction by the tan of pitch limit to get proper x and y components
@@ -140,7 +140,7 @@ function GetChangeInDistanceToTargetPerSecond {
     local timeDiffDistToTar to currentTimeDistToTar - GetChangeInDistanceToTargetPerSecond_PreviousTime.
     SET GetChangeInDistanceToTargetPerSecond_PreviousTime to currentTimeDistToTar.
 
-    local currentDist to LatLngDist(ImpactPos:position, TargetPos).
+    local currentDist to LatLngDist(ImpactPos, TargetPos).
     local distDiff to currentDist - GetChangeInDistanceToTargetPerSecond_PreviousDistance.
     SET GetChangeInDistanceToTargetPerSecond_PreviousDistance to currentDist.
 
@@ -202,6 +202,11 @@ function LatLngDist {
     // Only x and y are used for lat/long. z is to be ignored
     local Parameter pos1.
     local Parameter pos2.
+
+    // So that either LATLNG() or V() can be entered
+    If pos1:typename = "GeoCoordinates" { SET pos1 to V(pos1:lat, pos1:lng, 0). }
+    If pos2:typename = "GeoCoordinates" { SET pos2 to V(pos2:lat, pos2:lng, 0). }
+
 
     // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
     return (pos1 - pos2):MAG * 10471.975. 
