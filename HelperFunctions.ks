@@ -24,7 +24,7 @@ function GetSteeringRelativeToRetrograde {
     // If relative angle is too high, limit it.
     // Normalize the vectors, then multiply the target direction by the tan of pitch limit to get proper x and y components
     local angleDifference to vAng(targetDirection, retrogradeVector). // Angle of two cartesians
-    if angleDifference > pitchLimit { SET targetDirection to retrogradeVector:normalized + targetDirection:normalized*tan(pitchLimit). }
+    if angleDifference > PitchLimit { SET targetDirection to retrogradeVector:normalized + targetDirection:normalized*tan(PitchLimit). }
 
     return lookDirUp(targetDirection, facing:topvector).
 }
@@ -34,13 +34,13 @@ function GetSteeringRelativeToRetrograde {
 function GetSuicudeBurnAltitude {
     if SHIP:AVAILABLETHRUST = 0 { return 1. }
 
-    local g to body:mu / (TrueAltituide + body:radius)^2.
+    local g to body:mu / (TrueAltitude + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration, *0.8 to further undercalculate
     local netAcc to (SHIP:AVAILABLETHRUST*0.9 / SHIP:MASS) - g.
 
     // Kinematics equation to find displacement
-    local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltituide, 0, 100000). 
+    local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltitude, 0, 100000). 
     //local estBurnTime to (estBurnAlt/(0.5*netAcc))^0.5.
 
     return estBurnAlt.
@@ -49,13 +49,13 @@ function GetSuicudeBurnAltitude {
 function GetSuicideBurnLength {
     if SHIP:AVAILABLETHRUST = 0 { return 1. }
 
-    local g to body:mu / (TrueAltituide + body:radius)^2.
+    local g to body:mu / (TrueAltitude + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration
     local netAcc to (SHIP:AVAILABLETHRUST*0.9 / SHIP:MASS) - g.
 
     // Kinematics equation to find displacement
-    local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltituide, 0, 100000). 
+    local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltitude, 0, 100000). 
     local estBurnTime to (estBurnAlt/(0.5*netAcc))^0.5.
 
     return estBurnTime.
@@ -100,6 +100,7 @@ function GetLatLngAtAltitude {
 // Get compass bearing of retrograde by getting geoposition of retrograde point and the direction from the ship to it
 function GetRetrogradeBearing {
     local retrogradeGeoPos to AddMetersToGeoPos(Ship:geoposition, GetHorizationVelocity()*1000).
+    SET retrogradeGeoPos to LATLNG(retrogradeGeoPos:x, retrogradeGeoPos:y). // Convert to latlng
     return -MOD(DirToPoint(V(Ship:geoposition:lat, Ship:geoPosition:lng, 0), retrogradeGeoPos) + 90, 360)+360. // Adjust to be centered on north, MOD = %
 }
 
@@ -116,10 +117,10 @@ function GetVerticalVelocity {
 }
 
 // From the direction from the ship to the target and a magnitude, return an offset in the direction of the ship in lat/lng (either metres or degrees depending on magnitude value)
-function GetOffsetPosFromTargetPos {
+function GetOffsetPosFromTargetSite {
     local Parameter magnitude.
 
-    local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(targetSite:lat, targetSite:lng, 0))-180.
+    local offsetDir to DirToPoint(V(SHIP:geoposition:lat, SHIP:geoposition:lng, 0), V(TargetSite:lat, TargetSite:lng, 0))-180.
     local offset to V(cos(offsetDir), sin(offsetDir), 0) * magnitude.
 
     return offset.
@@ -162,6 +163,21 @@ function GetChangeInVerticalVelocity {
     return velDiff/timeDiffVertVel.
 }
 
+DECLARE GLOBAL GetChangeInSuicideBurnAltError_PreviousError to 1.
+DECLARE GLOBAL GetChangeInSuicideBurnAltError_PreviousTime IS TIME:SECONDS.
+function GetChangeInSuicideBurnAltError {
+    local currentTimeAltError to TIME:SECONDS.
+    local timeDiffAltError to currentTimeAltError - GetChangeInSuicideBurnAltError_PreviousTime.
+    SET GetChangeInSuicideBurnAltError_PreviousTime to currentTimeAltError.
+
+    local currentAltError to SHIP:ALTITUDE - GetSuicudeBurnAltitude().
+    local altErrorDiff to currentAltError - GetChangeInSuicideBurnAltError_PreviousError.
+    SET GetChangeInSuicideBurnAltError_PreviousError to currentAltError.
+
+    return altErrorDiff/timeDiffAltError.
+
+}
+
 // - - - Mathematical Functions - - - //
 // - - - Mathematical Functions - - - //
 // - - - Mathematical Functions - - - //
@@ -175,7 +191,7 @@ function AddMetersToGeoPos{
     local Parameter meters.
 
     // 10471.975 is the length of one degree lat/long on Kerbin. 3769911/360
-    return LATLNG(geopos:lat + meters:x/10471.975, geopos:lng + meters:y/10471.975). 
+    return V(geopos:lat + meters:x/10471.975, geopos:lng + meters:y/10471.975, 0). 
 }
 
 function Lerp {

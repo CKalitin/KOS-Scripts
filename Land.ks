@@ -103,7 +103,7 @@ function UpdateFlightVariables{
     SET TrueAltituide to alt:radar - craftHeight.
 
     SET suicideBurnLength to GetSuicideBurnLength().
-    SET suicideBurnAltError to TrueAltituide - GetSuicudeBurnAltitude() - craftHeight.
+    SET suicideBurnAltError to TrueAltituide - GetSuicudeBurnAltitude().
     SET changeInSuicudeBurnAltError to (previousSuicideBurnAltError - suicideBurnAltError) / tickLength.
     SET previousSuicideBurnAltError to suicideBurnAltError.
 
