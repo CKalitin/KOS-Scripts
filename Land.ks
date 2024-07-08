@@ -4,7 +4,7 @@
 // Primary Launch Pad: -0.0972078320140506, -74.5576718763811
 // Landing site north: -0.185407556445315, -74.4729356049979
 // VAB East Helipad:   -0.0967999401268479, -74.617417864482
-SET targetSite to LATLNG(-0.0967999401268479, -74.617417864482).
+SET targetSite to LATLNG(-0.185407556445315, -74.4729356049979).
 
 SET flightPhase to 0.
 SET tickLength to 0.1.
@@ -13,9 +13,9 @@ SET pitchLimit to 45.
 SET craftHeight to 7. // Adjust to true radar altitude, not quite full craft height just where its controlled from
 
 SET ImpactPos to SHIP:GEOPOSITION.
-SET TargetPosAltituide to 0. // Altitude of impact point (used for aerodynamic control to a point above the surface)
+SET TargetPosAltitude to 0. // Altitude of impact point (used for aerodynamic control to a point above the surface)
 SET TargetPos to V(targetSite:LAT, targetSite:LNG, 0). // This is the adjusted landing site, used for aerodynamic control above ~5km
-SET TrueAltituide to 0.
+SET TrueAltitude to 0.
 
 SET impactToTargetDir to 100.
 SET impactToTargetDistance to 100.
@@ -41,6 +41,7 @@ CLEARVECDRAWS().
 
 SET gear to false.
 StartReorientationForBoostbackBurn().
+//GlideToPointAboveLandingSite().
 
 UNTIL false {
     // If impact or zero key pressed, stop the script
@@ -49,8 +50,8 @@ UNTIL false {
 
     UpdateFlightVariables().
 
-    drawLineToTarget().
-    drawLineToImpact().
+    //drawLineToTarget().
+    //drawLineToImpact().
 
     if flightPhase = 0 {
         PRINT "Flight Phase: Orient For Boostback (1/6)" at (0, 0).
@@ -71,7 +72,7 @@ UNTIL false {
 
         GlideToTarget().
 
-        if TrueAltituide < 4000 { GlideToLandingSite(). }
+        if TrueAltitude < 4000 { GlideToLandingSite(). }
     } else if flightPhase = 3 {
         PRINT "Flight Phase: Final Aerodynamic Descent (4/6)" at (0, 0).
 
@@ -82,28 +83,29 @@ UNTIL false {
     } else if flightPhase = 4 {
         PRINT "Flight Phase: Propulsive Descent (5/6)" at (0, 0).
 
-        SET gear to TrueAltituide < 300.
+        SET gear to TrueAltitude < 300.
 
         ControlSuicideBurn().
 
-        if TrueAltituide < TargetPosAltituide OR ABS(ship:velocity:surface:mag) < 45 { StartTouchdown. }
+        if TrueAltitude < TargetPosAltitude OR ABS(ship:velocity:surface:mag) < 45 { StartTouchdown. }
     } else if flightPhase = 5{
         PRINT "Flight Phase: Soft Touchdown (6/6)" at (0, 0).
 
-        SET gear to TrueAltituide < 300.
+        SET gear to TrueAltitude < 300.
 
         SoftTouchdown().
     }
 }
 
+// A few of these are backwards (negative), very stupid, refactor 2 needed
 function UpdateFlightVariables{
-    if TargetPosAltituide = 0 { SET ImpactPos to ADDONS:TR:IMPACTPOS. }
-    else SET ImpactPos to GetLatLngAtAltitude(TargetPosAltituide, SHIP:OBT:ETA:PERIAPSIS, 1).
+    if TargetPosAltitude = 0 { SET ImpactPos to ADDONS:TR:IMPACTPOS. }
+    else SET ImpactPos to GetLatLngAtAltitude(TargetPosAltitude, SHIP:OBT:ETA:PERIAPSIS, 1).
 
-    SET TrueAltituide to alt:radar - craftHeight.
+    SET TrueAltitude to alt:radar - craftHeight.
 
     SET suicideBurnLength to GetSuicideBurnLength().
-    SET suicideBurnAltError to TrueAltituide - GetSuicudeBurnAltitude().
+    SET suicideBurnAltError to TrueAltitude - GetSuicudeBurnAltitude().
     SET changeInSuicudeBurnAltError to (previousSuicideBurnAltError - suicideBurnAltError) / tickLength.
     SET previousSuicideBurnAltError to suicideBurnAltError.
 
@@ -141,7 +143,7 @@ function StartBoostbackBurn {
 
 function GlideToPointAboveLandingSite {
     SET TargetPos to V(targetSite:LAT, targetSite:LNG, 0).
-    SET TargetPosAltituide to 0.
+    SET TargetPosAltitude to 0.
 
     SET flightPhase to 2.
     CLEARSCREEN.
@@ -149,11 +151,11 @@ function GlideToPointAboveLandingSite {
 
 function GlideToLandingSite {
     SET TargetPos to V(targetSite:LAT, targetSite:LNG, 0).
-    SET TargetPosAltituide to 0.
+    SET TargetPosAltitude to 0.
     
     // Offset by 30 meters away from ship's current position
-    SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetPos(-30)).
-    SET TargetPosAltituide to 0.
+    SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetSite(-30)).
+    SET TargetPosAltitude to 0.
 
     SET pitchLimit to 45.
 
@@ -163,8 +165,8 @@ function GlideToLandingSite {
 
 function StartSuicideBurn {
     local magnitude to -(GetHorizationVelocity():mag^1.67) / 45. // Offset by multiple of current horizontal velocity
-    SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetPos(magnitude)).
-    SET TargetPosAltituide to 20.
+    SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetSite(magnitude)).
+    SET TargetPosAltitude to 10.
 
     LOCK THROTTLE TO 0.8. 
 
@@ -175,7 +177,7 @@ function StartSuicideBurn {
 }
 
 function StartTouchdown {
-    SET TargetPosAltituide to 0. 
+    SET TargetPosAltitude to 0. 
 
     SET pitchLimit to 5.
 
@@ -216,7 +218,7 @@ function Boostback {
 }
 
 function GlideToTarget {
-    local aproxTimeRemaining to (TrueAltituide - TargetPosAltituide) / (SHIP:velocity:surface:mag*2). // Assuming terminal velocity
+    local aproxTimeRemaining to (TrueAltitude - TargetPosAltitude) / (SHIP:velocity:surface:mag*2). // Assuming terminal velocity
     local targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
 
     // If impact dist < 50, do fine control that asymptotically approaches the target, avoid large overcorrection
@@ -268,18 +270,22 @@ function ControlSuicideBurn {
 }
 
 function SoftTouchdown {
-    local t to TrueAltituide / 50.
+    local t to TrueAltitude / 50.
     SET TargetVerticalVelocity to Lerp(-2, -10, CLAMP(t, 0, 1)).
 
-    local aproxTimeRemaining to (TrueAltituide - TargetPosAltituide) / (SHIP:velocity:surface:mag*2). // Assuming Constant Velocity
-    SET aproxTimeRemaining to CLAMP(aproxTimeRemaining, 0, 10). // Clamp to 10 seconds, incase you want to hover
+    local aproxTimeRemaining to (TrueAltitude - TargetPosAltitude) / (SHIP:velocity:surface:mag*2). // Assuming Constant Velocity
+    SET aproxTimeRemaining to CLAMP(aproxTimeRemaining, 5, 10). // Clamp to 10 seconds, incase you want to hover
 
-    local pitchMultiplier to Lerp(0, pitchLimit, CLAMP(GetHorizationVelocity():MAG/10, 0, 1)).
+    local pitchMultiplier to Lerp(0, pitchLimit, CLAMP(GetHorizationVelocity():MAG/3, 0, 1)).
     LOCK STEERING TO HEADING(RetrogradeBearing, 90 - pitchMultiplier, 0).
 
     local baseThrottle to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02. // Hover, Kn to tons, -0.02 adjustment
-    local targetChangeInVerticalVelocity to (TargetVerticalVelocity - GetVerticalVelocity()) / aproxTimeRemaining * tickLength * 10.
-    local throttleChange to CLAMP(targetChangeInVerticalVelocity, -0.2, 0.2).
+
+    local vertVelError to TargetVerticalVelocity - GetVerticalVelocity().
+    local throttleChange to CLAMP(vertVelError^1.7/50, 0.01, 0.25) * (vertVelError/ABS(vertVelError)). // keep the sign on vertVelError
+
+    //local targetChangeInVerticalVelocity to (TargetVerticalVelocity - GetVerticalVelocity()) * tickLength * 10.
+    //local throttleChange to CLAMP(targetChangeInVerticalVelocity, -0.2, 0.2).
 
     LOCK throttle to CLAMP(baseThrottle + throttleChange, 0, 1).
 
@@ -289,7 +295,7 @@ function SoftTouchdown {
     PrintValue("Target Vertical Velocity", TargetVerticalVelocity, 5).
 
     PrintValue("Change in Vertical Velocity", ChangeInVerticalVelocity, 7).
-    PrintValue("Target Change in Vertical Velocity", targetChangeInVerticalVelocity, 8).
+    //PrintValue("Target Change in Vertical Velocity", targetChangeInVerticalVelocity, 8).
 
     PrintValue("Base Throttle", baseThrottle, 10).
     PrintValue("Throttle Change", throttleChange, 11).
@@ -298,5 +304,5 @@ function SoftTouchdown {
 
     PrintValue("Pitch Multiplier", pitchMultiplier, 15).
 
-    PrintValue("True Altitude", TrueAltituide, 17).
+    PrintValue("True Altitude", TrueAltitude, 17).
 }

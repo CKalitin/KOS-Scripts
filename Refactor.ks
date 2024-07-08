@@ -188,7 +188,7 @@ function Touchdown {
     LOCK TargetHeading to HEADING(RetrogradeBearing, 90 - pitchMultiplier, 0).
 
     LOCK BaseThrottle to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02. // Hover, 9.964016384 for Kn to tons, -0.02 adjustment
-    LOCK TargetChangeInVerticalVelocity to (TargetVerticalVelocity - GetVerticalVelocity()) / aproxTimeRemaining / 50. // 50 frames per second ew
+    LOCK TargetChangeInVerticalVelocity to (TargetVerticalVelocity - GetVerticalVelocity()) / aproxTimeRemaining / 50. // 50 frames per second ew, get delta time do better
     LOCK ThrottleChange to Clamp(TargetChangeInVerticalVelocity, -0.2, 0.2).
     LOCK THROTTLE to Clamp(BaseThrottle + ThrottleChange, 0, 1).
 }
