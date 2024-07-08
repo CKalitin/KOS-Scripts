@@ -1,3 +1,5 @@
+Video: https://www.youtube.com/watch?v=7jYHo3ureQQ
+
 Put the this repository in the Ships/Scripts folder in the KSP directory.
 
 Notes:
