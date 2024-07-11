@@ -41,7 +41,57 @@ CLEARVECDRAWS().
 
 SET gear to false.
 StartReorientationForBoostbackBurn().
-//GlideToPointAboveLandingSite().
+
+// Ascent & Synced Launch with many rockets:
+// Just comment out the WAIT UNTIL and function call to disable, again, refactor needed so that this is standardized
+
+// Action group 9 triggers launch
+SHIP:MESSAGES:CLEAR(). // If any existing messages, clear
+//WAIT UNTIL SHIP:MESSAGES:Length > 0 OR AG9.
+//Ascent().
+
+// Line 73 doesn't work on craft that are no focused on. Then after the boostback trigger, the script ends abruptly. 
+function Ascent {
+    PRINT "Flight Phase: Ascent" at (0, 0).
+
+    if AG9{
+        // Tell all other ships to launch
+        // Disabling Comm Net is a requirement for this to work
+        List Targets in allTargets. // Includes asteroids
+        for vessel in allTargets { if vessel:type = "SHIP" { vessel:CONNECTION:SENDMESSAGE("Launch"). } }
+    }
+
+    LOCK THROTTLE TO 1.
+    //local targetBearing to RANDOM() * 360. // random gives float 0-1
+    local targetBearing to 0.
+
+    UNTIL false {
+        local LOCK targetPitch to CLAMP(LERP(0, 40, SHIP:Altitude/20000), 0, 40).
+        LOCK STEERING TO HEADING(targetBearing, 90 - targetPitch).
+        
+        local targetStageDeltaV to GetHorizationVelocity():mag * 2 + 400. // DeltaV to stage at
+        if SHIP:STAGEDELTAV(SHIP:STAGENUM):CURRENT < targetStageDeltaV OR SHIP:apoapsis > 150000 {
+            LOCK THROTTLE TO 0.
+            PRINT "Waiting to Boostback. " at (0, 6).
+            BREAK.
+        }
+
+        PRINTVALUE("Heading", "(" + targetBearing + ", " + targetPitch + ")", 2).
+        PRINTVALUE("Target Stage DeltaV", targetStageDeltaV, 3).
+        PRINTVALUE("Current DeltaV", SHIP:STAGEDELTAV(SHIP:STAGENUM):CURRENT, 4).
+
+        WAIT tickLength.
+    }
+
+    UNTIL false {
+        if SHIP:ALTITUDE > 50000 {BREAK. }
+        if ETA:APOAPSIS < 10 { BREAK. }
+        WAIT tickLength.
+    }
+
+    StartReorientationForBoostbackBurn(). 
+    toggle AG6.
+}
 
 UNTIL false {
     // If impact or zero key pressed, stop the script

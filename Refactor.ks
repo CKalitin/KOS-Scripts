@@ -11,6 +11,12 @@
 // Landing site north: -0.185407556445315, -74.4729356049979
 // VAB East Helipad:   -0.0967999401268479, -74.617417864482
 
+// IT NEEDS TO USE WHEN NOT UNTIL!!!!!
+// IT NEEDS TO USE WHEN NOT UNTIL!!!!!
+// IT NEEDS TO USE WHEN NOT UNTIL!!!!!
+// IT NEEDS TO USE WHEN NOT UNTIL!!!!!
+// IT NEEDS TO USE WHEN NOT UNTIL!!!!!
+
 run HelperFunctions.
 
 // - - - Config Variables - - - //
