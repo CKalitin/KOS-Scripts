@@ -1,3 +1,5 @@
+Wrote a blog post on this: https://ckalitin.github.io/space/2024/07/24/kos-booster-landing.html
+
 Put the this repository in the Ships/Scripts folder in the KSP directory.
 
 Notes:
