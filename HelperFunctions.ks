@@ -30,8 +30,8 @@ function GetSteeringRelativeToRetrograde {
 }
 
 // Engines must be active to return accurate value
-// Eg. use (SHIP:ALTITUDE - GetSuicudeBurnAltitude()) to get the whether the engines should be firing or not, <0 = fire
-function GetSuicudeBurnAltitude {
+// Eg. use (SHIP:ALTITUDE - GetSuicideBurnAltitude()) to get the whether the engines should be firing or not, <0 = fire
+function GetSuicideBurnAltitude {
     if SHIP:AVAILABLETHRUST = 0 { return 1. }
 
     local g to body:mu / (TrueAltitude + body:radius)^2.
@@ -170,7 +170,7 @@ function GetChangeInSuicideBurnAltError {
     local timeDiffAltError to currentTimeAltError - GetChangeInSuicideBurnAltError_PreviousTime.
     SET GetChangeInSuicideBurnAltError_PreviousTime to currentTimeAltError.
 
-    local currentAltError to SHIP:ALTITUDE - GetSuicudeBurnAltitude().
+    local currentAltError to SHIP:ALTITUDE - GetSuicideBurnAltitude().
     local altErrorDiff to currentAltError - GetChangeInSuicideBurnAltError_PreviousError.
     SET GetChangeInSuicideBurnAltError_PreviousError to currentAltError.
 
