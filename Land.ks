@@ -41,6 +41,7 @@ CLEARVECDRAWS().
 
 SET gear to false.
 StartReorientationForBoostbackBurn().
+//GlideToLandingSite().
 
 UNTIL false {
     // If impact or zero key pressed, stop the script
@@ -48,9 +49,6 @@ UNTIL false {
     if AG10 { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
 
     UpdateFlightVariables().
-
-    //drawLineToTarget().
-    //drawLineToImpact().
 
     if flightPhase = 0 {
         PRINT "Flight Phase: Orient For Boostback (1/6)" at (0, 0).
@@ -76,8 +74,6 @@ UNTIL false {
         PRINT "Flight Phase: Final Aerodynamic Descent (4/6)" at (0, 0).
 
         GlideToTarget().
-
-        PrintValue("Suicide Burn Alt Error", suicideBurnAltError, 11).
         if suicideBurnAltError < 0 { StartSuicideBurn(). } // If Suicide Burn is Required
     } else if flightPhase = 4 {
         PRINT "Flight Phase: Propulsive Descent (5/6)" at (0, 0).
@@ -94,10 +90,6 @@ UNTIL false {
 
         SoftTouchdown().
     }
-}
-
-function GetNetDisplacementEstimate {
-
 }
 
 // A few of these are backwards (negative), very stupid, refactor 2 needed
@@ -167,8 +159,8 @@ function GlideToLandingSite {
 }
 
 function StartSuicideBurn {
-    local magnitude to -(GetHorizationVelocity():mag^1.67) / 45. // Offset by multiple of current horizontal velocity
-    SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetSite(magnitude)).
+    local magnitude to -(GetHorizontalVelocity():mag^1.67) / 45. // Offset by multiple of current horizontal velocity
+    SET TargetPos to AddMetersToGeoPos(targetSite, V(0, 0, 0)).
     SET TargetPosAltitude to 10.
 
     LOCK THROTTLE TO 0.8. 
@@ -199,7 +191,7 @@ function OrientForBoostback {
     local targetBearing to impactToTargetDir.
     local targetPitch to 0.
 
-    local targetHeading to HEADING(targetBearing, targetPitch).
+    local targetHeading to HEADING(targetBearing, targetPitch, 0).
     LOCK STEERING TO targetHeading.
 
     local directionError to vAng(targetHeading:vector, ship:facing:vector).
@@ -211,7 +203,7 @@ function OrientForBoostback {
 
 function Boostback {
     local targetBearing to impactToTargetDir.
-    local targetHeading to HEADING(targetBearing, 0).
+    local targetHeading to HEADING(targetBearing, 0, 0).
     LOCK STEERING TO targetHeading.
 
     PrintValue("Impact to Target Error", impactToTargetDistance, 2).
@@ -221,12 +213,15 @@ function Boostback {
 }
 
 function GlideToTarget {
+    SET displacementEstimate to GetSuicideBurnNetDisplacementEstimate() + 8. // Offset by 5 meters, I don't like this kind of tuning
+    SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetSite(-displacementEstimate)).
+
     local aproxTimeRemaining to (TrueAltitude - TargetPosAltitude) / (SHIP:velocity:surface:mag*2). // Assuming terminal velocity
     local targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
 
     // If impact dist < 50, do fine control that asymptotically approaches the target, avoid large overcorrection
     local pitchMultiplier to targetChangeInDistanceToTargetPerSecond * 2.5.
-    if impactToTargetDistance < 50 { SET pitchMultiplier to (impactToTargetDistance^1.6)/15. }
+    if impactToTargetDistance < 100 { SET pitchMultiplier to (impactToTargetDistance^1.5)/80. }
 
     LOCK STEERING TO GetSteeringRelativeToRetrograde(pitchMultiplier).
 
@@ -238,6 +233,10 @@ function GlideToTarget {
 
     PrintValue("Pitch Limit", pitchLimit, 8).
     PrintValue("Pitch Multiplier", pitchMultiplier, 9).
+
+    PrintValue("Net Displacement Estimate", displacementEstimate, 11).
+    PrintValue("Suicide Burn Alt Error", suicideBurnAltError, 12).
+    PrintValue("Suicide Burn Length", suicideBurnLength, 13).
 }
 
 function ControlSuicideBurn {
@@ -279,7 +278,7 @@ function SoftTouchdown {
     local aproxTimeRemaining to (TrueAltitude - TargetPosAltitude) / (SHIP:velocity:surface:mag*2). // Assuming Constant Velocity
     SET aproxTimeRemaining to CLAMP(aproxTimeRemaining, 5, 10). // Clamp to 10 seconds, incase you want to hover
 
-    local pitchMultiplier to Lerp(0, pitchLimit, CLAMP(GetHorizationVelocity():MAG/3, 0, 1)).
+    local pitchMultiplier to Lerp(0, pitchLimit, CLAMP(GetHorizontalVelocity():MAG/3, 0, 1)).
     LOCK STEERING TO HEADING(RetrogradeBearing, 90 - pitchMultiplier, 0).
 
     local baseThrottle to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02. // Hover, Kn to tons, -0.02 adjustment

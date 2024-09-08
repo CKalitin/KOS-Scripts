@@ -26,7 +26,8 @@ function GetSteeringRelativeToRetrograde {
     local angleDifference to vAng(targetDirection, retrogradeVector). // Angle of two cartesians
     if angleDifference > PitchLimit { SET targetDirection to retrogradeVector:normalized + targetDirection:normalized*tan(PitchLimit). }
 
-    return lookDirUp(targetDirection, facing:topvector).
+    local result to lookDirUp(targetDirection, facing:topvector).
+    return R(result:pitch, result:yaw, 0).
 }
 
 // Engines must be active to return accurate value
@@ -99,13 +100,13 @@ function GetLatLngAtAltitude {
 
 // Get compass bearing of retrograde by getting geoposition of retrograde point and the direction from the ship to it
 function GetRetrogradeBearing {
-    local retrogradeGeoPos to AddMetersToGeoPos(Ship:geoposition, GetHorizationVelocity()*1000).
+    local retrogradeGeoPos to AddMetersToGeoPos(Ship:geoposition, GetHorizontalVelocity()*1000).
     SET retrogradeGeoPos to LATLNG(retrogradeGeoPos:x, retrogradeGeoPos:y). // Convert to latlng
     return -MOD(DirToPoint(V(Ship:geoposition:lat, Ship:geoPosition:lng, 0), retrogradeGeoPos) + 90, 360)+360. // Adjust to be centered on north, MOD = %
 }
 
 // Return east/west and north/south components of velocity
-function GetHorizationVelocity {
+function GetHorizontalVelocity {
     // https://www.reddit.com/r/Kos/comments/bwy79n/clarifications_on_shipvelocitysurface/
     local vEast to -vDot(ship:velocity:surface, ship:north:starvector).
     local vNorth to vDot(ship:velocity:surface, ship:north:forevector).
@@ -129,6 +130,23 @@ function GetOffsetPosFromTargetSite {
 function GetImpactPos {
     if TargetPosAltitude = 0 AND ADDONS:TR:HASIMPACT {return ADDONS:TR:IMPACTPOS. }
     else { return GetLatLngAtAltitude(TargetPosAltitude, SHIP:OBT:ETA:PERIAPSIS, 1). }
+}
+
+function GetSuicideBurnNetDisplacementEstimate {
+    local pitchRelativeToDown to vang(ship:facing:forevector, up:forevector). // Eg. up = 0, horizontal = 90
+
+    // Iterate over every second until impact and linearly estimate the angle relative to down for every second
+    // With this value, calculate the difference in horizontal velocity, and add to net displacement
+    local t to suicideBurnLength.
+    local netDisplacement to 0.
+    UNTIL (t < 0) {
+        local angle to lerp(0, pitchRelativeToDown, t / suicideBurnLength).
+        local xVel to SIN(angle) * (SHIP:AVAILABLETHRUST*0.8 / SHIP:MASS). // F/m = a, thrust in kN, mass in tons / mega grams / kilo kilograms
+        SET netDisplacement to netDisplacement + xVel.
+        SET t to t - 1.
+    }
+
+    return netDisplacement.
 }
 
 // Naming variables only used in this function: Function name + _ + variable name
