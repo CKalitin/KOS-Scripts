@@ -137,10 +137,11 @@ function GetSuicideBurnNetDisplacementEstimate {
 
     // Iterate over every second until impact and linearly estimate the angle relative to down for every second
     // With this value, calculate the difference in horizontal velocity, and add to net displacement
-    local t to suicideBurnLength.
+    local localSuicideBurnLength to GetSuicideBurnLength().
+    local t to localSuicideBurnLength.
     local netDisplacement to 0.
     UNTIL (t < 0) {
-        local angle to lerp(0, pitchRelativeToDown, t / suicideBurnLength).
+        local angle to lerp(0, pitchRelativeToDown, t / localSuicideBurnLength).
         local xVel to SIN(angle) * (SHIP:AVAILABLETHRUST*0.8 / SHIP:MASS). // F/m = a, thrust in kN, mass in tons / mega grams / kilo kilograms
         SET netDisplacement to netDisplacement + xVel.
         SET t to t - 1.
