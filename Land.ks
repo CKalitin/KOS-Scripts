@@ -73,6 +73,10 @@ UNTIL false {
     } else if flightPhase = 3 {
         PRINT "Flight Phase: Final Aerodynamic Descent (4/6)" at (0, 0).
 
+        // Update Target Position based on expected x displacement due to landing burn
+        SET displacementEstimate to GetSuicideBurnNetDisplacementEstimate(). // Offset by 8 meters, I don't like this kind of tuning
+        SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetSite(-displacementEstimate)).
+
         GlideToTarget().
         if suicideBurnAltError < 0 { StartSuicideBurn(). } // If Suicide Burn is Required
     } else if flightPhase = 4 {
@@ -159,7 +163,6 @@ function GlideToLandingSite {
 }
 
 function StartSuicideBurn {
-    local magnitude to -(GetHorizontalVelocity():mag^1.67) / 45. // Offset by multiple of current horizontal velocity
     SET TargetPos to AddMetersToGeoPos(targetSite, V(0, 0, 0)).
     SET TargetPosAltitude to 10.
 
@@ -213,9 +216,6 @@ function Boostback {
 }
 
 function GlideToTarget {
-    SET displacementEstimate to GetSuicideBurnNetDisplacementEstimate() + 8. // Offset by 5 meters, I don't like this kind of tuning
-    SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetSite(-displacementEstimate)).
-
     local aproxTimeRemaining to (TrueAltitude - TargetPosAltitude) / (SHIP:velocity:surface:mag*2). // Assuming terminal velocity
     local targetChangeInDistanceToTargetPerSecond to impactToTargetDistance/aproxTimeRemaining. 
 
@@ -275,11 +275,11 @@ function SoftTouchdown {
     local t to TrueAltitude / 50.
     SET TargetVerticalVelocity to Lerp(-2, -10, CLAMP(t, 0, 1)).
 
-    local aproxTimeRemaining to (TrueAltitude - TargetPosAltitude) / (SHIP:velocity:surface:mag*2). // Assuming Constant Velocity
+    local aproxTimeRemaining to (TrueAltitude - TargetPosAltitude) / (SHIP:velocity:surface:mag*2 + 0.001). // Assuming Constant Velocity
     SET aproxTimeRemaining to CLAMP(aproxTimeRemaining, 5, 10). // Clamp to 10 seconds, incase you want to hover
 
     local pitchMultiplier to Lerp(0, pitchLimit, CLAMP(GetHorizontalVelocity():MAG/3, 0, 1)).
-    LOCK STEERING TO HEADING(RetrogradeBearing, 90 - pitchMultiplier, 0).
+    LOCK STEERING TO HEADING(RetrogradeBearing, 90 - pitchMultiplier).
 
     local baseThrottle to SHIP:Mass/(SHIP:MAXTHRUST / 9.964016384)-0.02. // Hover, Kn to tons, -0.02 adjustment
 
