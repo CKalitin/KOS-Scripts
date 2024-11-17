@@ -12,3 +12,6 @@ Entry burn is an example of a stupid solution, it should be fully aero. Stress t
 On Sep 8/9 2024 the landing burn function was changed to account for the landing burn itself changing the original impact pos estimate, the estimate is slightly more accurate now. This is in the last paragraph of the "No Unifed Solution To Cancel Horizontal Velocity and Minimize Landing Error" section of the blog post, I laid out the ideas of what I did. This solves most of the notes, except integrating horizontal velocity cancellation and landing burn into a single function.
 
 I'm on the UBC Solar design team now and see how "professionals" do things, more notes are good.
+
+It might be possible to do this without kOS bullshit language, instead the less bullshit Python:
+https://www.youtube.com/watch?v=MQjr3zI_0B0
