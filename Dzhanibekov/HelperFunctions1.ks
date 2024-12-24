@@ -114,7 +114,7 @@ function GetHorizontalVelocity {
 }
 
 function GetVerticalVelocity {
-    return -1 * vDot(ship:velocity:surface, ship:north:TOPVECTOR) + 0.001.
+    return Clamp(-1 * vDot(ship:velocity:surface, ship:north:TOPVECTOR) + 0.001, -1000, 1000).
 }
 
 // From the direction from the ship to the target and a magnitude, return an offset in the direction of the ship in lat/lng (either metres or degrees depending on magnitude value)

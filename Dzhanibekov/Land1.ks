@@ -34,7 +34,7 @@ SET previousVerticalVelocity to 1.
 SET RetrogradePitch to 100.
 SET RetrogradeBearing to 100.
 
-run HelperFunctions.
+run HelperFunctions1.
 
 CLEARSCREEN.
 CLEARVECDRAWS().
@@ -94,7 +94,7 @@ UNTIL false {
 
         SoftTouchdown().
 
-        if (TrueAltitude < 1) { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
+        if (TrueAltitude < 0.5) { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
     }
 }
 
