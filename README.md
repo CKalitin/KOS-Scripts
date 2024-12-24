@@ -15,3 +15,6 @@ I'm on the UBC Solar design team now and see how "professionals" do things, more
 
 It might be possible to do this without kOS bullshit language, instead the less bullshit Python:
 https://www.youtube.com/watch?v=MQjr3zI_0B0
+
+kRPC: https://krpc.github.io/krpc/
+(from the I2Rocketguy stream)
