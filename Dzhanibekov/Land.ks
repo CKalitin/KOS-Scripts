@@ -40,13 +40,10 @@ CLEARSCREEN.
 CLEARVECDRAWS().
 
 Toggle RCS.
-Toggle AG5. // Landing Mode
 
 SET gear to false.
 StartReorientationForBoostbackBurn().
 //GlideToLandingSite().
-
-
 
 UNTIL false {
     // If impact or zero key pressed, stop the script
@@ -56,7 +53,7 @@ UNTIL false {
     UpdateFlightVariables().
     
     // Terminal flight when we're probably landed
-    if (flightPhase = 5 and (TrueAltitude < 1 or GetVerticalVelocity() >= -0.1)) { SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0. CLEARSCREEN. BREAK. }
+    if (flightPhase = 5 and (TrueAltitude < 2 or GetVerticalVelocity() >= -0.25)) { SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0. CLEARSCREEN. BREAK. }
 
     if flightPhase = 0 {
         PRINT "Flight Phase: Orient For Boostback (1/6)" at (0, 0).
@@ -152,6 +149,8 @@ function GlideToPointAboveLandingSite {
     SET TargetPos to V(targetSite:LAT, targetSite:LNG, 0).
     SET TargetPosAltitude to 0.
 
+    Toggle AG5. // Landing Mode
+
     SET flightPhase to 2.
     CLEARSCREEN.
 }
@@ -164,7 +163,7 @@ function GlideToLandingSite {
     SET TargetPos to AddMetersToGeoPos(targetSite, GetOffsetPosFromTargetSite(-30)).
     SET TargetPosAltitude to 0.
 
-    SET pitchLimit to 45.
+    SET pitchLimit to 20.
 
     SET flightPhase to 3.
     CLEARSCREEN.
