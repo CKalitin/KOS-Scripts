@@ -38,7 +38,7 @@ function GetSuicideBurnAltitude {
     local g to body:mu / (TrueAltitude + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration, *0.8 to further undercalculate
-    local netAcc to (SHIP:AVAILABLETHRUST*0.9 / SHIP:MASS) - g.
+    local netAcc to (SHIP:AVAILABLETHRUST*OverEstThrottleInSuicideBurn / SHIP:MASS) - g.
 
     // Kinematics equation to find displacement
     local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltitude, 0, 100000). 
@@ -53,7 +53,7 @@ function GetSuicideBurnLength {
     local g to body:mu / (TrueAltitude + body:radius)^2.
 
     // Drag isn't factored in but this causes a greater margin for error, undercalculating net acceleration
-    local netAcc to (SHIP:AVAILABLETHRUST*0.9 / SHIP:MASS) - g.
+    local netAcc to (SHIP:AVAILABLETHRUST*OverEstThrottleInSuicideBurn / SHIP:MASS) - g.
 
     // Kinematics equation to find displacement
     local estBurnAlt to ((GetVerticalVelocity()^2) / (netAcc*2)) + CLAMP(ImpactPos:TERRAINHEIGHT + TargetPosAltitude, 0, 100000). 
@@ -142,7 +142,7 @@ function GetSuicideBurnNetDisplacementEstimate {
     local netDisplacement to 0.
     UNTIL (t < 0) {
         local angle to lerp(0, pitchRelativeToDown, t / localSuicideBurnLength).
-        local xVel to SIN(angle) * (SHIP:AVAILABLETHRUST*0.8 / SHIP:MASS). // F/m = a, thrust in kN, mass in tons / mega grams / kilo kilograms
+        local xVel to SIN(angle) * (SHIP:AVAILABLETHRUST*EstThrottleInSuicideBurn / SHIP:MASS). // F/m = a, thrust in kN, mass in tons / mega grams / kilo kilograms you get kN/t or N/kg, so the formula works
         SET netDisplacement to netDisplacement + xVel.
         SET t to t - 1.
     }

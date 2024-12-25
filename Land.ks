@@ -34,14 +34,20 @@ SET previousVerticalVelocity to 1.
 SET RetrogradePitch to 100.
 SET RetrogradeBearing to 100.
 
-run HelperFunctions.
+run HelperFunctions1.
 
 CLEARSCREEN.
 CLEARVECDRAWS().
 
+UNTIL  (alt:radar > 5000 AND GetVerticalVelocity() < 50) {
+
+}
+
 SET gear to false.
 StartReorientationForBoostbackBurn().
 //GlideToLandingSite().
+
+
 
 UNTIL false {
     // If impact or zero key pressed, stop the script
@@ -93,9 +99,9 @@ UNTIL false {
         SET gear to TrueAltitude < 300.
 
         SoftTouchdown().
-
-        if (TrueAltitude < 1) { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
     }
+    
+    if (flightPhase = 5 and (TrueAltitude < 0.5 or GetVerticalVelocity() >= 0)) { LOCK THROTTLE TO 0. SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0. CLEARSCREEN. BREAK. }
 }
 
 // A few of these are backwards (negative), very stupid, refactor 2 needed

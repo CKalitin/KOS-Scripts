@@ -4,13 +4,13 @@
 // Primary Launch Pad: -0.0972078320140506, -74.5576718763811
 // Landing site north: -0.185407556445315, -74.4729356049979
 // VAB East Helipad:   -0.0967999401268479, -74.617417864482
-SET targetSite to LATLNG(-0.190507556445315, -74.4729356049979).
+//SET targetSite to LATLNG(-0.190507556445315, -74.4729356049979).
 
 SET flightPhase to 0.
 SET tickLength to 0.1.
 
 SET pitchLimit to 45.
-SET craftHeight to 7. // Adjust to true radar altitude, not quite full craft height just where its controlled from
+//SET craftHeight to 7. // Adjust to true radar altitude, not quite full craft height just where its controlled from
 
 SET ImpactPos to SHIP:GEOPOSITION.
 SET TargetPosAltitude to 0. // Altitude of impact point (used for aerodynamic control to a point above the surface)
@@ -34,14 +34,19 @@ SET previousVerticalVelocity to 1.
 SET RetrogradePitch to 100.
 SET RetrogradeBearing to 100.
 
-run HelperFunctions1.
+run HelperFunctions.
 
 CLEARSCREEN.
 CLEARVECDRAWS().
 
+Toggle RCS.
+Toggle AG5. // Landing Mode
+
 SET gear to false.
 StartReorientationForBoostbackBurn().
 //GlideToLandingSite().
+
+
 
 UNTIL false {
     // If impact or zero key pressed, stop the script
@@ -49,6 +54,9 @@ UNTIL false {
     //if AG10 { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
 
     UpdateFlightVariables().
+    
+    // Terminal flight when we're probably landed
+    if (flightPhase = 5 and (TrueAltitude < 1 or GetVerticalVelocity() >= -0.1)) { SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0. CLEARSCREEN. BREAK. }
 
     if flightPhase = 0 {
         PRINT "Flight Phase: Orient For Boostback (1/6)" at (0, 0).
@@ -69,7 +77,7 @@ UNTIL false {
 
         GlideToTarget().
 
-        if TrueAltitude < 4000 { GlideToLandingSite(). }
+        if TrueAltitude < 3000 { GlideToLandingSite(). }
     } else if flightPhase = 3 {
         PRINT "Flight Phase: Final Aerodynamic Descent (4/6)" at (0, 0).
 
@@ -93,8 +101,6 @@ UNTIL false {
         SET gear to TrueAltitude < 300.
 
         SoftTouchdown().
-
-        if (TrueAltitude < 0.5) { LOCK THROTTLE TO 0. CLEARSCREEN. BREAK. }
     }
 }
 
@@ -223,7 +229,7 @@ function GlideToTarget {
 
     // If impact dist < 50, do fine control that asymptotically approaches the target, avoid large overcorrection
     local pitchMultiplier to targetChangeInDistanceToTargetPerSecond * 2.5.
-    if impactToTargetDistance < 100 { SET pitchMultiplier to (impactToTargetDistance^1.5)/80. }
+    if impactToTargetDistance < 100 { SET pitchMultiplier to (impactToTargetDistance^1.5)*PitchMultiplierMultiplier. }
 
     LOCK STEERING TO GetSteeringRelativeToRetrograde(pitchMultiplier).
 
@@ -253,10 +259,11 @@ function ControlSuicideBurn {
         LOCK THROTTLE to CLAMP(currentThrottle - throttleChange, 0, 1).
     }
 
-    // There is a trade off between using aerodynamic control and propulsive contorl
+    // There is a trade off between using aerodynamic control and propulsive control
     // At the right time we must switch between these two modes by flipping our heading relative to retrograde
+    // When under 50 m/s vertical velocity, we switch to propulsive control (ie. point the engine in the opposite direction of where you want to go)
     local headingMultiplier to 1.
-    if ship:velocity:surface:mag < 500 { SET headingMultiplier to -1. }
+    if ship:velocity:surface:mag < AeroControlThreshold { SET headingMultiplier to -1. } 
 
     local pitchMultiplier to CLAMP((impactToTargetDistance^1.5)/10, 0, pitchLimit).
     LOCK STEERING TO GetSteeringRelativeToRetrograde(pitchMultiplier * headingMultiplier).
@@ -308,4 +315,8 @@ function SoftTouchdown {
     PrintValue("Pitch Multiplier", pitchMultiplier, 15).
 
     PrintValue("True Altitude", TrueAltitude, 17).
+
+    PrintValue("Ship Available Thrust", SHIP:AVAILABLETHRUST, 19).
+    PrintValue("Ship Thrust", SHIP:THRUST, 20).
+    PrintValue("Ship Mass", SHIP:MASS, 21).
 }
