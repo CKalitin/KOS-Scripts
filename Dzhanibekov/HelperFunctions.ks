@@ -142,7 +142,7 @@ function GetSuicideBurnNetDisplacementEstimate {
     local netDisplacement to 0.
     UNTIL (t < 0) {
         local angle to lerp(0, pitchRelativeToDown, t / localSuicideBurnLength).
-        local xVel to SIN(angle) * (SHIP:AVAILABLETHRUST*EstThrottleInSuicideBurn / SHIP:MASS). // F/m = a, thrust in kN, mass in tons / mega grams / kilo kilograms you get kN/t or N/kg, so the formula works
+        local xVel to SIN(angle) * ((SHIP:AVAILABLETHRUST*EstThrottleInSuicideBurn) / SHIP:MASS). // F/m = a, thrust in kN, mass in tons / mega grams / kilo kilograms you get kN/t or N/kg, so the formula works
         SET netDisplacement to netDisplacement + xVel.
         SET t to t - 1.
     }

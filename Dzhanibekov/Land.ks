@@ -53,7 +53,7 @@ UNTIL false {
     UpdateFlightVariables().
     
     // Terminal flight when we're probably landed
-    if (flightPhase = 5 and (TrueAltitude < 2 or GetVerticalVelocity() >= -0.25)) { SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0. CLEARSCREEN. BREAK. }
+    if (flightPhase >= 4 and (TrueAltitude < 3 or GetVerticalVelocity() >= -1.9)) { SET SHIP:CONTROL:PILOTMAINTHROTTLE TO 0. CLEARSCREEN. BREAK. }
 
     if flightPhase = 0 {
         PRINT "Flight Phase: Orient For Boostback (1/6)" at (0, 0).
@@ -208,7 +208,7 @@ function OrientForBoostback {
 
     PrintValue("Direction Error", directionError, 2).
 
-    if directionError < 30 { StartBoostbackBurn(). }
+    if directionError < DirectionErrorPreBoostbackBurn { StartBoostbackBurn(). }
 }
 
 function Boostback {
