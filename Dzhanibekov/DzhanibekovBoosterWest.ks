@@ -6,12 +6,12 @@
 // Landing site mid:   -0.195555039290476, -74.473845384726
 
 // LS North Middle: -0.185407556445315, -74.472935604997
-// LS North North: -0.187407556445315, -74.472935604997
-// LS North East: -0.185407556445315, -74.452935604997
-// LS North South: -0.183407556445315, -74.472935604997
-// LS North West: -0.185407556445315, -74.492935604997
+// LS North North: -0.187007556445315, -74.472035604997
+// LS North East: -0.185407556445315, -74.471285604997
+// LS North South: -0.183807556445315, -74.472035604997
+// LS North West: -0.185407556445315, -74.475385604997
 
-SET targetSite to LATLNG(-0.185407556445315, -74.492935604997).
+SET targetSite to LATLNG(-0.185407556445315, -74.475385604997).
 
 SET PitchMultiplierMultiplier to 0.002. // Lower value means less aggressive pitch control
 SET EstThrottleInSuicideBurn to 1.5. // What percentage of throttle is used during the final burn, this is used to estimate offset before the burn

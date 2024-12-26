@@ -9,12 +9,12 @@
 // LS North North: -0.187407556445315, -74.472935604997
 // LS North East: -0.185407556445315, -74.452935604997
 // LS North South: -0.183407556445315, -74.472935604997
-// LS North West: -0.185407556445315, -74.492935604997
+// LS North West: -0.185407556445315, -74.470935604997
 
 SET targetSite to LATLNG(-0.185407556445315, -74.472935604997).
 
 SET PitchMultiplierMultiplier to 0.0005. // Lower value means less aggressive pitch control
-SET EstThrottleInSuicideBurn to 2. // What percentage of throttle is used during the final burn, this is used to estimate offset before the burn
+SET EstThrottleInSuicideBurn to 2.05. // What percentage of throttle is used during the final burn, this is used to estimate offset before the burn
 SET OverEstThrottleInSuicideBurn to 0.90. // Get Suicide Burn functions are a little off, just give them a bigger value
 SET craftHeight to 12.1.
 SET AeroControlThreshold to 80. // Below this velocity, propulsive control is used in the final burn, above, aero control
@@ -53,10 +53,10 @@ UNTIL SHIP:ALTITUDE > 30000 {
     PrintValue("Current TWR", SHIP:THRUST/SHIP:MASS/10, 7).
     PrintValue("Throttle", throttleValue, 8).
 
-    PrintValue("Ship Mass", SHIP:MASS, 10).
+    PrintValue("Ship Mass (t)", SHIP:MASS, 10).
 
-    PrintValue("Stage Num", SHIP:STAGENUM, 12).
-    PrintValue("Initial Stage Num", initialStageNum, 13).
+    PrintValue("Stage Number", SHIP:STAGENUM, 12).
+    PrintValue("Initial Stage Number", initialStageNum, 13).
 
     IF (SHIP:MASS < 35.5 and SHIP:STAGENUM >= initialStageNum - 1) {
         LOCK STEERING TO srfPrograde.
