@@ -1,5 +1,8 @@
 Wrote a blog post on this: https://ckalitin.github.io/space/2024/07/24/kos-booster-landing.html
 
+Wrote another blog post on this:
+https://ckalitin.github.io/projects/2024/12/25/more-kos-boosters.html
+
 Put the this repository in the Ships/Scripts folder in the KSP directory and then call it with "switch to 0." "cd kos." "run land."
 
 Notes:  
